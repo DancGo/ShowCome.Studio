@@ -1,0 +1,3443 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>兽可梦 Show Come | 专业兽装定制工作室</title>
+<meta name="description" content="兽可梦（Show Come）专业兽头兽装定制工作室，提供高品质定制与成品售卖服务">
+
+<!-- Google Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Noto+Sans+SC:wght@300;400;500;700&family=Space+Grotesk:wght@300;400;500;700&display=swap" rel="stylesheet">
+
+<!-- Three.js -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<!-- GSAP -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+
+<style>
+/* ============================================
+   CSS VARIABLES & RESET
+   ============================================ */
+:root {
+  --primary: #0a0a0f;
+  --secondary: #111118;
+  --accent: #7c3aed;
+  --accent2: #06d6a0;
+  --accent3: #f72585;
+  --text: #e8e8f0;
+  --text-muted: #888899;
+  --border: rgba(124,58,237,0.2);
+  --glass: rgba(255,255,255,0.03);
+  --glass-border: rgba(255,255,255,0.08);
+  --glow: 0 0 40px rgba(124,58,237,0.4);
+  --glow2: 0 0 40px rgba(6,214,160,0.3);
+  --card-bg: rgba(16,16,28,0.8);
+  --nav-h: 72px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { scroll-behavior: smooth; font-size: 16px; }
+
+body {
+  background: var(--primary);
+  color: var(--text);
+  font-family: 'Noto Sans SC', 'Space Grotesk', sans-serif;
+  overflow-x: hidden;
+  cursor: none;
+}
+
+/* Custom Cursor */
+#cursor {
+  position: fixed;
+  width: 12px; height: 12px;
+  background: var(--accent);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 10000;
+  transition: transform 0.1s, background 0.2s;
+  mix-blend-mode: screen;
+}
+#cursor-ring {
+  position: fixed;
+  width: 40px; height: 40px;
+  border: 1px solid rgba(124,58,237,0.6);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 9999;
+  transition: transform 0.15s, width 0.3s, height 0.3s, border-color 0.3s;
+  transform: translate(-14px, -14px);
+}
+body:hover #cursor { opacity: 1; }
+
+/* ============================================
+   SCROLLBAR
+   ============================================ */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: var(--primary); }
+::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 2px; }
+
+/* ============================================
+   NOISE TEXTURE OVERLAY
+   ============================================ */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.4;
+}
+
+/* ============================================
+   NAVIGATION
+   ============================================ */
+nav {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: var(--nav-h);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 40px;
+  background: rgba(10,10,15,0.7);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--glass-border);
+  transition: all 0.4s;
+}
+
+nav.scrolled {
+  background: rgba(10,10,15,0.95);
+  box-shadow: 0 4px 30px rgba(0,0,0,0.5);
+}
+
+.nav-logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-decoration: none;
+  cursor: none;
+}
+
+.nav-logo-icon {
+  width: 40px; height: 40px;
+  position: relative;
+}
+
+.nav-logo-icon svg {
+  width: 100%; height: 100%;
+  filter: drop-shadow(0 0 8px rgba(124,58,237,0.8));
+}
+
+.nav-logo-text {
+  font-family: 'Orbitron', monospace;
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  background: linear-gradient(135deg, #fff 0%, var(--accent) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.nav-logo-sub {
+  font-size: 0.6rem;
+  color: var(--text-muted);
+  letter-spacing: 0.3em;
+  display: block;
+  font-family: 'Space Grotesk', sans-serif;
+  -webkit-text-fill-color: var(--text-muted);
+}
+
+.nav-links {
+  display: flex;
+  gap: 8px;
+  list-style: none;
+}
+
+.nav-links a {
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: 0.85rem;
+  letter-spacing: 0.08em;
+  padding: 8px 16px;
+  border-radius: 6px;
+  transition: all 0.3s;
+  cursor: none;
+  position: relative;
+}
+
+.nav-links a::after {
+  content: '';
+  position: absolute;
+  bottom: 4px; left: 50%;
+  width: 0; height: 1px;
+  background: var(--accent);
+  transition: all 0.3s;
+  transform: translateX(-50%);
+}
+
+.nav-links a:hover {
+  color: var(--text);
+  background: var(--glass);
+}
+
+.nav-links a:hover::after { width: calc(100% - 32px); }
+.nav-links a.active { color: var(--text); }
+.nav-links a.active::after { width: calc(100% - 32px); }
+
+.nav-cta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 24px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  cursor: none;
+  transition: all 0.3s;
+  text-decoration: none;
+  border: none;
+  outline: none;
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--glass-border);
+}
+
+.btn-ghost:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(124,58,237,0.1);
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: white;
+  box-shadow: 0 0 20px rgba(124,58,237,0.4);
+}
+
+.btn-primary:hover {
+  background: #6d28d9;
+  box-shadow: 0 0 30px rgba(124,58,237,0.6);
+  transform: translateY(-1px);
+}
+
+.hamburger {
+  display: none;
+  flex-direction: column;
+  gap: 5px;
+  cursor: none;
+  padding: 8px;
+}
+
+.hamburger span {
+  display: block;
+  width: 24px; height: 2px;
+  background: var(--text);
+  transition: all 0.3s;
+  border-radius: 1px;
+}
+
+/* ============================================
+   HERO SECTION
+   ============================================ */
+#hero {
+  position: relative;
+  height: 100vh;
+  min-height: 700px;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+}
+
+#hero-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.hero-grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(124,58,237,0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(124,58,237,0.05) 1px, transparent 1px);
+  background-size: 60px 60px;
+  mask-image: radial-gradient(ellipse at center, black 30%, transparent 80%);
+}
+
+.hero-content {
+  position: relative;
+  z-index: 10;
+  padding: 0 80px;
+  max-width: 800px;
+}
+
+.hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px;
+  border: 1px solid rgba(124,58,237,0.4);
+  border-radius: 100px;
+  font-size: 0.75rem;
+  color: var(--accent);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  margin-bottom: 32px;
+  background: rgba(124,58,237,0.1);
+  animation: fadeInUp 0.8s ease both;
+}
+
+.hero-badge-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(1.5); }
+}
+
+.hero-title {
+  font-family: 'Orbitron', monospace;
+  font-size: clamp(3rem, 7vw, 6rem);
+  font-weight: 900;
+  line-height: 1.0;
+  letter-spacing: -0.02em;
+  margin-bottom: 24px;
+  animation: fadeInUp 0.8s 0.1s ease both;
+}
+
+.hero-title-line1 {
+  display: block;
+  color: var(--text);
+}
+
+.hero-title-line2 {
+  display: block;
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent3) 50%, var(--accent2) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-size: 200% 200%;
+  animation: gradientShift 4s ease infinite, fadeInUp 0.8s 0.2s ease both;
+}
+
+@keyframes gradientShift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+.hero-sub {
+  font-size: clamp(1rem, 2vw, 1.2rem);
+  color: var(--text-muted);
+  line-height: 1.8;
+  max-width: 500px;
+  margin-bottom: 48px;
+  animation: fadeInUp 0.8s 0.3s ease both;
+}
+
+.hero-actions {
+  display: flex;
+  gap: 16px;
+  animation: fadeInUp 0.8s 0.4s ease both;
+}
+
+.btn-large {
+  padding: 16px 40px;
+  font-size: 1rem;
+  border-radius: 12px;
+}
+
+.hero-scroll {
+  position: absolute;
+  bottom: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  animation: fadeInUp 1s 1s ease both;
+}
+
+.hero-scroll-line {
+  width: 1px;
+  height: 60px;
+  background: linear-gradient(to bottom, var(--accent), transparent);
+  animation: scrollLine 2s ease infinite;
+}
+
+@keyframes scrollLine {
+  0% { transform: scaleY(0); transform-origin: top; }
+  50% { transform: scaleY(1); transform-origin: top; }
+  51% { transform: scaleY(1); transform-origin: bottom; }
+  100% { transform: scaleY(0); transform-origin: bottom; }
+}
+
+.hero-stats {
+  position: absolute;
+  right: 80px;
+  bottom: 120px;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  animation: fadeInUp 0.8s 0.6s ease both;
+}
+
+.stat-item {
+  text-align: right;
+}
+
+.stat-number {
+  font-family: 'Orbitron', monospace;
+  font-size: 2.5rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, #fff, var(--accent));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  line-height: 1;
+}
+
+.stat-label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(30px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ============================================
+   SECTION STYLES
+   ============================================ */
+section {
+  position: relative;
+  z-index: 1;
+}
+
+.section-pad {
+  padding: 120px 80px;
+}
+
+.section-header {
+  margin-bottom: 80px;
+}
+
+.section-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.75rem;
+  color: var(--accent);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  margin-bottom: 16px;
+}
+
+.section-tag::before {
+  content: '';
+  width: 30px; height: 1px;
+  background: var(--accent);
+}
+
+.section-title {
+  font-family: 'Orbitron', monospace;
+  font-size: clamp(2rem, 4vw, 3.5rem);
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+.section-title span {
+  background: linear-gradient(135deg, var(--accent), var(--accent3));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.section-desc {
+  margin-top: 20px;
+  color: var(--text-muted);
+  font-size: 1rem;
+  line-height: 1.8;
+  max-width: 600px;
+}
+
+/* ============================================
+   MARQUEE / TICKER
+   ============================================ */
+.marquee-wrap {
+  overflow: hidden;
+  border-top: 1px solid var(--glass-border);
+  border-bottom: 1px solid var(--glass-border);
+  padding: 20px 0;
+  background: var(--glass);
+}
+
+.marquee-track {
+  display: flex;
+  gap: 60px;
+  animation: marquee 20s linear infinite;
+  white-space: nowrap;
+}
+
+.marquee-item {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  font-family: 'Orbitron', monospace;
+  font-size: 0.8rem;
+  letter-spacing: 0.2em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.marquee-item .dot {
+  width: 4px; height: 4px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+/* ============================================
+   SERVICES / ABOUT SECTION
+   ============================================ */
+#about {
+  background: linear-gradient(180deg, var(--primary) 0%, var(--secondary) 100%);
+}
+
+.about-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 80px;
+  align-items: center;
+}
+
+.about-visual {
+  position: relative;
+  height: 500px;
+}
+
+#about-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 20px;
+  overflow: hidden;
+}
+
+.about-visual-border {
+  position: absolute;
+  inset: 0;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: var(--glass);
+  backdrop-filter: blur(10px);
+  overflow: hidden;
+}
+
+.about-visual-border::before {
+  content: '';
+  position: absolute;
+  top: -50%; left: -50%;
+  width: 200%; height: 200%;
+  background: conic-gradient(from 0deg, transparent 0deg, var(--accent) 60deg, transparent 120deg);
+  animation: spin 8s linear infinite;
+  opacity: 0.15;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.about-visual-inner {
+  position: absolute;
+  inset: 1px;
+  border-radius: 19px;
+  background: var(--secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.about-3d-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.fur-icon {
+  width: 180px;
+  height: 180px;
+  animation: float 4s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(-20px) rotate(5deg); }
+}
+
+.services-list {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  margin-top: 40px;
+}
+
+.service-item {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+  padding: 24px;
+  border-radius: 16px;
+  border: 1px solid var(--glass-border);
+  background: var(--glass);
+  transition: all 0.4s;
+  backdrop-filter: blur(10px);
+}
+
+.service-item:hover {
+  border-color: var(--accent);
+  background: rgba(124,58,237,0.08);
+  transform: translateX(8px);
+  box-shadow: -4px 0 0 var(--accent), 0 4px 30px rgba(124,58,237,0.15);
+}
+
+.service-icon {
+  width: 48px; height: 48px;
+  border-radius: 12px;
+  background: rgba(124,58,237,0.15);
+  border: 1px solid rgba(124,58,237,0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+  flex-shrink: 0;
+}
+
+.service-info h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 6px;
+  color: var(--text);
+}
+
+.service-info p {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+/* ============================================
+   PORTFOLIO / WORKS SECTION
+   ============================================ */
+#works {
+  background: var(--primary);
+}
+
+.works-filter {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 48px;
+  flex-wrap: wrap;
+}
+
+.filter-btn {
+  padding: 8px 20px;
+  border-radius: 100px;
+  border: 1px solid var(--glass-border);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  cursor: none;
+  transition: all 0.3s;
+  font-family: 'Noto Sans SC', sans-serif;
+}
+
+.filter-btn:hover,
+.filter-btn.active {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(124,58,237,0.1);
+}
+
+.works-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+}
+
+.work-card {
+  position: relative;
+  border-radius: 20px;
+  overflow: hidden;
+  border: 1px solid var(--glass-border);
+  background: var(--card-bg);
+  cursor: none;
+  transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  group: true;
+}
+
+.work-card:hover {
+  transform: translateY(-8px) scale(1.02);
+  border-color: var(--accent);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5), 0 0 0 1px var(--accent), var(--glow);
+}
+
+.work-card.featured {
+  grid-column: span 2;
+  grid-row: span 2;
+}
+
+.work-image {
+  width: 100%;
+  aspect-ratio: 4/3;
+  background: var(--secondary);
+  position: relative;
+  overflow: hidden;
+}
+
+.work-card.featured .work-image {
+  aspect-ratio: unset;
+  height: 100%;
+  min-height: 400px;
+}
+
+.work-image-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.work-image-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(10,10,15,0.9) 0%, transparent 60%);
+  opacity: 0;
+  transition: opacity 0.4s;
+  display: flex;
+  align-items: flex-end;
+  padding: 24px;
+}
+
+.work-card:hover .work-image-overlay { opacity: 1; }
+
+.work-image-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.work-info {
+  padding: 20px;
+}
+
+.work-type {
+  font-size: 0.7rem;
+  color: var(--accent);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.work-name {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: var(--text);
+}
+
+.work-meta {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.work-likes, .work-views {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* ============================================
+   SHOP SECTION
+   ============================================ */
+#shop {
+  background: linear-gradient(180deg, var(--secondary) 0%, var(--primary) 100%);
+}
+
+.shop-categories {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 48px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  scrollbar-width: none;
+}
+
+.shop-categories::-webkit-scrollbar { display: none; }
+
+.cat-card {
+  flex-shrink: 0;
+  padding: 16px 28px;
+  border-radius: 16px;
+  border: 1px solid var(--glass-border);
+  background: var(--glass);
+  cursor: none;
+  transition: all 0.3s;
+  text-align: center;
+  min-width: 100px;
+}
+
+.cat-card:hover,
+.cat-card.active {
+  border-color: var(--accent2);
+  background: rgba(6,214,160,0.1);
+}
+
+.cat-icon { font-size: 1.8rem; margin-bottom: 8px; }
+.cat-name { font-size: 0.8rem; color: var(--text-muted); }
+.cat-card.active .cat-name { color: var(--accent2); }
+
+.products-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 24px;
+}
+
+.product-card {
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid var(--glass-border);
+  background: var(--card-bg);
+  cursor: none;
+  transition: all 0.4s;
+}
+
+.product-card:hover {
+  border-color: rgba(6,214,160,0.4);
+  transform: translateY(-4px);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.4), var(--glow2);
+}
+
+.product-image {
+  aspect-ratio: 1;
+  background: var(--secondary);
+  position: relative;
+  overflow: hidden;
+}
+
+.product-badge {
+  position: absolute;
+  top: 12px; left: 12px;
+  padding: 4px 10px;
+  border-radius: 100px;
+  font-size: 0.65rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.badge-new { background: var(--accent2); color: #000; }
+.badge-hot { background: var(--accent3); color: white; }
+.badge-sale { background: var(--accent); color: white; }
+
+.product-info {
+  padding: 16px;
+}
+
+.product-name {
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin-bottom: 6px;
+  color: var(--text);
+}
+
+.product-category {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+
+.product-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.product-price {
+  font-family: 'Orbitron', monospace;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--accent2);
+}
+
+.product-price-old {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-decoration: line-through;
+  margin-left: 6px;
+}
+
+.btn-add-cart {
+  width: 36px; height: 36px;
+  border-radius: 10px;
+  border: 1px solid rgba(6,214,160,0.4);
+  background: rgba(6,214,160,0.1);
+  color: var(--accent2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: none;
+  transition: all 0.3s;
+  font-size: 1.2rem;
+}
+
+.btn-add-cart:hover {
+  background: var(--accent2);
+  color: #000;
+  border-color: var(--accent2);
+}
+
+/* ============================================
+   CUSTOM ORDER SECTION
+   ============================================ */
+#custom {
+  background: var(--primary);
+  position: relative;
+  overflow: hidden;
+}
+
+#custom::before {
+  content: '';
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: 800px; height: 800px;
+  background: radial-gradient(ellipse, rgba(124,58,237,0.1) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.custom-grid {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr;
+  gap: 80px;
+  align-items: start;
+}
+
+.custom-process {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.process-step {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+  position: relative;
+  padding-bottom: 40px;
+}
+
+.process-step:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  left: 19px; top: 48px;
+  width: 1px;
+  height: calc(100% - 48px);
+  background: linear-gradient(to bottom, var(--accent), transparent);
+}
+
+.process-num {
+  width: 40px; height: 40px;
+  border-radius: 50%;
+  border: 2px solid var(--accent);
+  background: rgba(124,58,237,0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Orbitron', monospace;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.process-content h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 8px;
+  padding-top: 8px;
+}
+
+.process-content p {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+.custom-form-card {
+  background: var(--card-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: 24px;
+  padding: 48px;
+  backdrop-filter: blur(20px);
+  position: sticky;
+  top: 100px;
+}
+
+.custom-form-card h3 {
+  font-family: 'Orbitron', monospace;
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.custom-form-card p {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  margin-bottom: 32px;
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-label {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  letter-spacing: 0.08em;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+}
+
+.form-control {
+  width: 100%;
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--glass-border);
+  background: rgba(255,255,255,0.03);
+  color: var(--text);
+  font-size: 0.9rem;
+  font-family: 'Noto Sans SC', sans-serif;
+  transition: all 0.3s;
+  outline: none;
+}
+
+.form-control:focus {
+  border-color: var(--accent);
+  background: rgba(124,58,237,0.05);
+  box-shadow: 0 0 0 3px rgba(124,58,237,0.15);
+}
+
+.form-control::placeholder { color: var(--text-muted); }
+
+select.form-control {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23888899' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  cursor: none;
+}
+
+select.form-control option {
+  background: var(--secondary);
+  color: var(--text);
+}
+
+textarea.form-control {
+  resize: vertical;
+  min-height: 100px;
+}
+
+.form-contacts {
+  display: flex;
+  gap: 12px;
+  margin-top: 24px;
+  flex-wrap: wrap;
+}
+
+.contact-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: 100px;
+  border: 1px solid var(--glass-border);
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  cursor: none;
+  transition: all 0.3s;
+  text-decoration: none;
+}
+
+.contact-chip:hover {
+  border-color: var(--accent);
+  color: var(--text);
+  background: rgba(124,58,237,0.1);
+}
+
+/* ============================================
+   TESTIMONIALS
+   ============================================ */
+#testimonials {
+  background: var(--secondary);
+  overflow: hidden;
+}
+
+.testimonials-track {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+  margin-top: 60px;
+}
+
+.testimonial-card {
+  padding: 32px;
+  border-radius: 20px;
+  border: 1px solid var(--glass-border);
+  background: var(--glass);
+  backdrop-filter: blur(10px);
+  transition: all 0.4s;
+}
+
+.testimonial-card:hover {
+  border-color: rgba(124,58,237,0.3);
+  background: rgba(124,58,237,0.05);
+  transform: translateY(-4px);
+}
+
+.testimonial-stars {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 16px;
+  color: #ffd700;
+  font-size: 1rem;
+}
+
+.testimonial-text {
+  font-size: 0.9rem;
+  line-height: 1.8;
+  color: var(--text-muted);
+  margin-bottom: 24px;
+  font-style: italic;
+}
+
+.testimonial-author {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.author-avatar {
+  width: 44px; height: 44px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent), var(--accent3));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  flex-shrink: 0;
+}
+
+.author-info .author-name {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.author-info .author-role {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+/* ============================================
+   DYNAMICS / NEWS SECTION
+   ============================================ */
+#dynamics {
+  background: var(--primary);
+}
+
+.dynamics-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+  margin-top: 60px;
+}
+
+.dynamic-card {
+  border-radius: 20px;
+  overflow: hidden;
+  border: 1px solid var(--glass-border);
+  background: var(--card-bg);
+  cursor: none;
+  transition: all 0.4s;
+}
+
+.dynamic-card:hover {
+  border-color: var(--accent);
+  transform: translateY(-6px);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+}
+
+.dynamic-card.featured {
+  grid-column: span 2;
+}
+
+.dynamic-image {
+  aspect-ratio: 16/9;
+  background: var(--secondary);
+  position: relative;
+  overflow: hidden;
+}
+
+.dynamic-card.featured .dynamic-image {
+  aspect-ratio: 21/9;
+}
+
+.dynamic-type-badge {
+  position: absolute;
+  top: 16px; left: 16px;
+  padding: 5px 12px;
+  border-radius: 100px;
+  font-size: 0.65rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  backdrop-filter: blur(10px);
+}
+
+.type-video { background: rgba(247,37,133,0.8); color: white; }
+.type-photo { background: rgba(124,58,237,0.8); color: white; }
+.type-article { background: rgba(6,214,160,0.8); color: #000; }
+
+.dynamic-content {
+  padding: 24px;
+}
+
+.dynamic-date {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  letter-spacing: 0.1em;
+  margin-bottom: 10px;
+}
+
+.dynamic-title {
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.5;
+  margin-bottom: 12px;
+  color: var(--text);
+}
+
+.dynamic-excerpt {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  line-height: 1.7;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.dynamic-meta {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--glass-border);
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+/* ============================================
+   FOOTER
+   ============================================ */
+footer {
+  background: var(--secondary);
+  border-top: 1px solid var(--glass-border);
+  padding: 80px;
+}
+
+.footer-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1.5fr;
+  gap: 60px;
+  margin-bottom: 60px;
+}
+
+.footer-brand p {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  line-height: 1.8;
+  margin-top: 20px;
+  max-width: 300px;
+}
+
+.footer-title {
+  font-size: 0.75rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 24px;
+}
+
+.footer-links {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.footer-links a {
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: 0.9rem;
+  cursor: none;
+  transition: color 0.3s;
+}
+
+.footer-links a:hover { color: var(--text); }
+
+.footer-social {
+  display: flex;
+  gap: 12px;
+  margin-top: 20px;
+  flex-wrap: wrap;
+}
+
+.social-btn {
+  width: 44px; height: 44px;
+  border-radius: 12px;
+  border: 1px solid var(--glass-border);
+  background: var(--glass);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  cursor: none;
+  transition: all 0.3s;
+  text-decoration: none;
+}
+
+.social-btn:hover {
+  border-color: var(--accent);
+  background: rgba(124,58,237,0.15);
+  transform: translateY(-2px);
+}
+
+.newsletter-form {
+  display: flex;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+.newsletter-form input {
+  flex: 1;
+  padding: 12px 16px;
+  border-radius: 10px;
+  border: 1px solid var(--glass-border);
+  background: var(--glass);
+  color: var(--text);
+  font-size: 0.85rem;
+  outline: none;
+  font-family: 'Noto Sans SC', sans-serif;
+}
+
+.newsletter-form input:focus {
+  border-color: var(--accent);
+}
+
+.newsletter-form input::placeholder { color: var(--text-muted); }
+
+.footer-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 32px;
+  border-top: 1px solid var(--glass-border);
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+/* ============================================
+   MODALS
+   ============================================ */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.8);
+  backdrop-filter: blur(8px);
+  z-index: 5000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s;
+}
+
+.modal-overlay.open {
+  opacity: 1;
+  pointer-events: all;
+}
+
+.modal {
+  background: var(--secondary);
+  border: 1px solid var(--glass-border);
+  border-radius: 24px;
+  padding: 48px;
+  max-width: 600px;
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+  position: relative;
+  transform: translateY(30px);
+  transition: transform 0.3s;
+}
+
+.modal-overlay.open .modal { transform: translateY(0); }
+
+.modal-close {
+  position: absolute;
+  top: 20px; right: 20px;
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  border: 1px solid var(--glass-border);
+  background: var(--glass);
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: none;
+  font-size: 1.2rem;
+  transition: all 0.3s;
+}
+
+.modal-close:hover {
+  border-color: var(--accent3);
+  color: var(--accent3);
+}
+
+/* ============================================
+   CART SIDEBAR
+   ============================================ */
+.cart-sidebar {
+  position: fixed;
+  right: 0; top: 0; bottom: 0;
+  width: 420px;
+  background: var(--secondary);
+  border-left: 1px solid var(--glass-border);
+  z-index: 4000;
+  transform: translateX(100%);
+  transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  overflow-y: auto;
+  padding: 32px;
+}
+
+.cart-sidebar.open { transform: translateX(0); }
+
+.cart-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 32px;
+}
+
+.cart-header h2 {
+  font-family: 'Orbitron', monospace;
+  font-size: 1.3rem;
+}
+
+.cart-count-badge {
+  background: var(--accent);
+  color: white;
+  border-radius: 50%;
+  width: 22px; height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.cart-items {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.cart-item {
+  display: flex;
+  gap: 16px;
+  padding: 16px;
+  border-radius: 16px;
+  border: 1px solid var(--glass-border);
+  background: var(--glass);
+}
+
+.cart-item-image {
+  width: 64px; height: 64px;
+  border-radius: 10px;
+  background: var(--primary);
+  flex-shrink: 0;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+}
+
+.cart-item-info { flex: 1; }
+.cart-item-name { font-size: 0.9rem; font-weight: 600; margin-bottom: 4px; }
+.cart-item-price { font-size: 0.85rem; color: var(--accent2); font-family: 'Orbitron', monospace; }
+
+.cart-item-remove {
+  cursor: none;
+  color: var(--text-muted);
+  font-size: 1.1rem;
+  transition: color 0.2s;
+  background: none;
+  border: none;
+  outline: none;
+}
+.cart-item-remove:hover { color: var(--accent3); }
+
+.cart-footer {
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px solid var(--glass-border);
+}
+
+.cart-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.cart-total-label { color: var(--text-muted); font-size: 0.9rem; }
+
+.cart-total-price {
+  font-family: 'Orbitron', monospace;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--accent2);
+}
+
+.cart-empty {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--text-muted);
+}
+
+.cart-empty-icon { font-size: 4rem; margin-bottom: 16px; }
+
+/* ============================================
+   NOTIFICATION TOAST
+   ============================================ */
+.toast {
+  position: fixed;
+  bottom: 40px;
+  left: 50%;
+  transform: translateX(-50%) translateY(100px);
+  background: var(--secondary);
+  border: 1px solid var(--accent);
+  border-radius: 16px;
+  padding: 16px 28px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  z-index: 9998;
+  transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5), var(--glow);
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+
+.toast.show { transform: translateX(-50%) translateY(0); }
+
+.toast-icon { font-size: 1.2rem; }
+
+/* ============================================
+   LOADER
+   ============================================ */
+#loader {
+  position: fixed;
+  inset: 0;
+  background: var(--primary);
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 32px;
+  transition: opacity 0.6s, visibility 0.6s;
+}
+
+#loader.hidden { opacity: 0; visibility: hidden; }
+
+.loader-logo {
+  font-family: 'Orbitron', monospace;
+  font-size: 2rem;
+  font-weight: 900;
+  background: linear-gradient(135deg, var(--accent), var(--accent3));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.loader-bar {
+  width: 200px;
+  height: 2px;
+  background: var(--glass-border);
+  border-radius: 1px;
+  overflow: hidden;
+}
+
+.loader-progress {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--accent3), var(--accent2));
+  border-radius: 1px;
+  animation: loadProgress 1.5s ease forwards;
+}
+
+@keyframes loadProgress {
+  from { width: 0; }
+  to { width: 100%; }
+}
+
+/* ============================================
+   NAV MOBILE MENU
+   ============================================ */
+.mobile-menu {
+  position: fixed;
+  inset: 0;
+  top: var(--nav-h);
+  background: rgba(10,10,15,0.98);
+  backdrop-filter: blur(20px);
+  z-index: 999;
+  padding: 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  transform: translateX(-100%);
+  transition: transform 0.4s;
+}
+
+.mobile-menu.open { transform: translateX(0); }
+
+.mobile-menu a {
+  font-size: 1.8rem;
+  font-family: 'Orbitron', monospace;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-decoration: none;
+  cursor: none;
+  transition: color 0.3s;
+  letter-spacing: 0.05em;
+}
+
+.mobile-menu a:hover { color: var(--accent); }
+
+/* ============================================
+   CART BUTTON IN NAV
+   ============================================ */
+.cart-nav-btn {
+  position: relative;
+  width: 44px; height: 44px;
+  border-radius: 12px;
+  border: 1px solid var(--glass-border);
+  background: var(--glass);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: none;
+  transition: all 0.3s;
+  font-size: 1.2rem;
+}
+
+.cart-nav-btn:hover {
+  border-color: var(--accent2);
+  background: rgba(6,214,160,0.1);
+}
+
+.cart-nav-count {
+  position: absolute;
+  top: -6px; right: -6px;
+  background: var(--accent3);
+  color: white;
+  border-radius: 50%;
+  width: 18px; height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.65rem;
+  font-weight: 700;
+  display: none;
+}
+
+.cart-nav-count.visible { display: flex; }
+
+/* ============================================
+   SCROLL ANIMATIONS
+   ============================================ */
+.reveal {
+  opacity: 0;
+  transform: translateY(40px);
+  transition: opacity 0.8s ease, transform 0.8s ease;
+}
+
+.reveal.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.reveal-left {
+  opacity: 0;
+  transform: translateX(-40px);
+  transition: opacity 0.8s ease, transform 0.8s ease;
+}
+
+.reveal-left.visible {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.reveal-right {
+  opacity: 0;
+  transform: translateX(40px);
+  transition: opacity 0.8s ease, transform 0.8s ease;
+}
+
+.reveal-right.visible {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* ============================================
+   RESPONSIVE
+   ============================================ */
+@media (max-width: 1200px) {
+  .products-grid { grid-template-columns: repeat(3, 1fr); }
+  .footer-grid { grid-template-columns: 1fr 1fr; gap: 40px; }
+}
+
+@media (max-width: 1024px) {
+  .section-pad { padding: 80px 40px; }
+  .hero-content { padding: 0 40px; }
+  .hero-stats { right: 40px; }
+  .works-grid { grid-template-columns: repeat(2, 1fr); }
+  .work-card.featured { grid-column: span 2; }
+  .about-grid, .custom-grid { grid-template-columns: 1fr; gap: 48px; }
+  .about-visual { height: 350px; }
+  .testimonials-track { grid-template-columns: 1fr 1fr; }
+  .dynamics-grid { grid-template-columns: 1fr; }
+  .dynamic-card.featured { grid-column: auto; }
+}
+
+@media (max-width: 768px) {
+  nav { padding: 0 20px; }
+  .nav-links { display: none; }
+  .nav-cta { gap: 8px; }
+  .nav-cta .btn-ghost { display: none; }
+  .hamburger { display: flex; }
+
+  .section-pad { padding: 60px 24px; }
+  .hero-content { padding: 0 24px; }
+  .hero-stats { display: none; }
+  .hero-actions { flex-direction: column; }
+  .btn-large { width: 100%; justify-content: center; }
+
+  .works-grid { grid-template-columns: 1fr; }
+  .work-card.featured { grid-column: auto; grid-row: auto; }
+
+  .products-grid { grid-template-columns: repeat(2, 1fr); }
+
+  .testimonials-track { grid-template-columns: 1fr; }
+
+  .footer-grid { grid-template-columns: 1fr; gap: 32px; }
+  footer { padding: 48px 24px; }
+
+  .cart-sidebar { width: 100%; }
+  .custom-form-card { padding: 28px; }
+  .custom-form-card { position: static; }
+}
+
+@media (max-width: 480px) {
+  .products-grid { grid-template-columns: 1fr; }
+  .shop-categories { gap: 8px; }
+}
+
+/* ============================================
+   SPECIAL EFFECTS
+   ============================================ */
+.glow-text {
+  text-shadow: 0 0 30px rgba(124,58,237,0.5);
+}
+
+.gradient-border {
+  position: relative;
+}
+
+.gradient-border::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  background: linear-gradient(135deg, var(--accent), var(--accent3), var(--accent2));
+  z-index: -1;
+}
+
+/* Product gen canvas */
+.gen-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* Section divider */
+.section-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--border), transparent);
+  margin: 0 80px;
+}
+
+/* Parallax container */
+.parallax { will-change: transform; }
+
+/* Hero orb */
+.hero-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  pointer-events: none;
+}
+
+.hero-orb-1 {
+  width: 500px; height: 500px;
+  background: radial-gradient(ellipse, rgba(124,58,237,0.3) 0%, transparent 70%);
+  top: -100px; right: -100px;
+  animation: orbFloat1 8s ease-in-out infinite;
+}
+
+.hero-orb-2 {
+  width: 300px; height: 300px;
+  background: radial-gradient(ellipse, rgba(247,37,133,0.2) 0%, transparent 70%);
+  bottom: 100px; left: -50px;
+  animation: orbFloat2 10s ease-in-out infinite;
+}
+
+@keyframes orbFloat1 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(-30px, 40px) scale(1.1); }
+}
+
+@keyframes orbFloat2 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(20px, -30px) scale(0.9); }
+}
+
+/* Tab styles for user section */
+.tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 32px;
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  padding: 4px;
+  width: fit-content;
+}
+
+.tab-btn {
+  padding: 8px 20px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  cursor: none;
+  transition: all 0.3s;
+  font-family: 'Noto Sans SC', sans-serif;
+}
+
+.tab-btn.active {
+  background: var(--accent);
+  color: white;
+}
+</style>
+</head>
+<body>
+
+<!-- LOADER -->
+<div id="loader">
+  <div class="loader-logo">兽可梦</div>
+  <div class="loader-bar"><div class="loader-progress"></div></div>
+  <div style="font-size:0.75rem;color:var(--text-muted);letter-spacing:0.3em;text-transform:uppercase">Show Come Studio</div>
+</div>
+
+<!-- CURSOR -->
+<div id="cursor"></div>
+<div id="cursor-ring"></div>
+
+<!-- NAVIGATION -->
+<nav id="navbar">
+  <a href="#" class="nav-logo" onclick="scrollToTop()">
+    <div class="nav-logo-icon">
+      <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M20 4C11.2 4 4 11.2 4 20C4 28.8 11.2 36 20 36C28.8 36 36 28.8 36 20C36 11.2 28.8 4 20 4Z" stroke="#7c3aed" stroke-width="1.5"/>
+        <path d="M14 16C14 16 12 14 12 20C12 23 13 25 14 26L16 28L20 30L24 28L26 26C27 25 28 23 28 20C28 14 26 16 26 16C26 16 24 12 20 12C16 12 14 16 14 16Z" fill="url(#grad)" opacity="0.9"/>
+        <ellipse cx="17" cy="18" rx="1.5" ry="2" fill="white"/>
+        <ellipse cx="23" cy="18" rx="1.5" ry="2" fill="white"/>
+        <circle cx="17" cy="18.5" r="0.8" fill="#1a0a2e"/>
+        <circle cx="23" cy="18.5" r="0.8" fill="#1a0a2e"/>
+        <path d="M16 23C16 23 17.5 24 20 24C22.5 24 24 23 24 23" stroke="white" stroke-width="1" stroke-linecap="round"/>
+        <defs>
+          <linearGradient id="grad" x1="12" y1="12" x2="28" y2="30" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#7c3aed"/>
+            <stop offset="100%" stop-color="#f72585"/>
+          </linearGradient>
+        </defs>
+      </svg>
+    </div>
+    <div>
+      <span class="nav-logo-text">兽可梦</span>
+      <span class="nav-logo-sub">Show Come Studio</span>
+    </div>
+  </a>
+
+  <ul class="nav-links" id="navLinks">
+    <li><a href="#about" onclick="navClick(event, 'about')">关于我们</a></li>
+    <li><a href="#works" onclick="navClick(event, 'works')">作品展示</a></li>
+    <li><a href="#shop" onclick="navClick(event, 'shop')">成品商城</a></li>
+    <li><a href="#custom" onclick="navClick(event, 'custom')">私人定制</a></li>
+    <li><a href="#dynamics" onclick="navClick(event, 'dynamics')">工作室动态</a></li>
+  </ul>
+
+  <div class="nav-cta">
+    <button class="cart-nav-btn" onclick="toggleCart()" title="购物车">
+      🛒
+      <span class="cart-nav-count" id="cartNavCount">0</span>
+    </button>
+    <a href="#" class="btn btn-ghost" onclick="openLoginModal()">登录</a>
+    <a href="#custom" class="btn btn-primary" onclick="navClick(event, 'custom')">立即定制</a>
+    <div class="hamburger" id="hamburger" onclick="toggleMobileMenu()">
+      <span></span><span></span><span></span>
+    </div>
+  </div>
+</nav>
+
+<!-- MOBILE MENU -->
+<div class="mobile-menu" id="mobileMenu">
+  <a href="#about" onclick="closeMobileMenu();navClick(event,'about')">关于我们</a>
+  <a href="#works" onclick="closeMobileMenu();navClick(event,'works')">作品展示</a>
+  <a href="#shop" onclick="closeMobileMenu();navClick(event,'shop')">成品商城</a>
+  <a href="#custom" onclick="closeMobileMenu();navClick(event,'custom')">私人定制</a>
+  <a href="#dynamics" onclick="closeMobileMenu();navClick(event,'dynamics')">工作室动态</a>
+</div>
+
+<!-- HERO SECTION -->
+<section id="hero">
+  <div class="hero-orb hero-orb-1"></div>
+  <div class="hero-orb hero-orb-2"></div>
+  <canvas id="hero-canvas"></canvas>
+  <div class="hero-grid"></div>
+
+  <div class="hero-content">
+    <div class="hero-badge">
+      <span class="hero-badge-dot"></span>
+      专业兽装定制工作室 · 2024年度最佳工作室
+    </div>
+
+    <h1 class="hero-title">
+      <span class="hero-title-line1">让梦想中的</span>
+      <span class="hero-title-line2">兽人形象</span>
+      <span class="hero-title-line1">成为现实</span>
+    </h1>
+
+    <p class="hero-sub">
+      兽可梦（Show Come）专注于高品质兽头、兽装制作。<br>
+      每一件作品都是匠心独运的艺术品，为您打造专属的毛茸茸身份。
+    </p>
+
+    <div class="hero-actions">
+      <a href="#works" class="btn btn-primary btn-large" onclick="navClick(event,'works')">
+        <span>探索作品</span>
+        <span>→</span>
+      </a>
+      <a href="#custom" class="btn btn-ghost btn-large" onclick="navClick(event,'custom')">
+        <span>✦</span>
+        <span>开始定制</span>
+      </a>
+    </div>
+  </div>
+
+  <div class="hero-stats">
+    <div class="stat-item">
+      <div class="stat-number" id="stat1">0</div>
+      <div class="stat-label">完成作品</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-number" id="stat2">0</div>
+      <div class="stat-label">满意客户</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-number" id="stat3">0</div>
+      <div class="stat-label">年制作经验</div>
+    </div>
+  </div>
+
+  <div class="hero-scroll">
+    <div class="hero-scroll-line"></div>
+    <span>向下滚动</span>
+  </div>
+</section>
+
+<!-- MARQUEE -->
+<div class="marquee-wrap">
+  <div class="marquee-track" id="marqueeTrack">
+    <div class="marquee-item"><span class="dot"></span> 兽头定制</div>
+    <div class="marquee-item"><span class="dot"></span> 全身兽装</div>
+    <div class="marquee-item"><span class="dot"></span> 兽耳配件</div>
+    <div class="marquee-item"><span class="dot"></span> 3D模型展示</div>
+    <div class="marquee-item"><span class="dot"></span> 客户定制</div>
+    <div class="marquee-item"><span class="dot"></span> 成品现货</div>
+    <div class="marquee-item"><span class="dot"></span> Show Come Studio</div>
+    <div class="marquee-item"><span class="dot"></span> 专业制作</div>
+    <div class="marquee-item"><span class="dot"></span> 兽头定制</div>
+    <div class="marquee-item"><span class="dot"></span> 全身兽装</div>
+    <div class="marquee-item"><span class="dot"></span> 兽耳配件</div>
+    <div class="marquee-item"><span class="dot"></span> 3D模型展示</div>
+    <div class="marquee-item"><span class="dot"></span> 客户定制</div>
+    <div class="marquee-item"><span class="dot"></span> 成品现货</div>
+    <div class="marquee-item"><span class="dot"></span> Show Come Studio</div>
+    <div class="marquee-item"><span class="dot"></span> 专业制作</div>
+  </div>
+</div>
+
+<!-- ABOUT SECTION -->
+<section id="about" class="section-pad">
+  <div class="about-grid">
+    <div class="about-visual reveal-left">
+      <div class="about-visual-border">
+        <div class="about-visual-inner">
+          <canvas id="about-canvas" style="width:100%;height:100%;display:block;"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div class="reveal-right">
+      <div class="section-header">
+        <div class="section-tag">关于兽可梦</div>
+        <h2 class="section-title">匠心制作<br><span>每一件都是艺术</span></h2>
+        <p class="section-desc">
+          兽可梦工作室成立于2018年，专注于高品质兽头与兽装的创作与制作。我们将传统手工艺与现代技术相结合，为每位客户打造独一无二的毛茸茸角色形象。
+        </p>
+      </div>
+
+      <div class="services-list">
+        <div class="service-item">
+          <div class="service-icon">🎨</div>
+          <div class="service-info">
+            <h3>原创设计</h3>
+            <p>专业设计师团队为您量身打造独特角色设计，从概念草图到最终效果图全程陪伴</p>
+          </div>
+        </div>
+        <div class="service-item">
+          <div class="service-icon">🔧</div>
+          <div class="service-info">
+            <h3>精湛制作</h3>
+            <p>采用优质EVA泡沫、高级毛绒面料等材料，手工精细打磨，确保每件作品的品质</p>
+          </div>
+        </div>
+        <div class="service-item">
+          <div class="service-icon">📦</div>
+          <div class="service-info">
+            <h3>成品现货</h3>
+            <p>精选库存成品，支持快速发货，让您无需等待也能拥有心仪的兽装</p>
+          </div>
+        </div>
+        <div class="service-item">
+          <div class="service-icon">🌟</div>
+          <div class="service-info">
+            <h3>售后保障</h3>
+            <p>专属售后服务团队，提供使用指导、维修修复等全方位保障</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="section-divider"></div>
+
+<!-- WORKS SECTION -->
+<section id="works" class="section-pad">
+  <div class="section-header reveal">
+    <div class="section-tag">作品展示</div>
+    <h2 class="section-title">我们的<span>代表作品</span></h2>
+    <p class="section-desc">每件作品都承载着客户的梦想与我们的匠心，在这里，找到属于你的那份独特</p>
+  </div>
+
+  <div class="works-filter reveal">
+    <button class="filter-btn active" onclick="filterWorks(this, 'all')">全部</button>
+    <button class="filter-btn" onclick="filterWorks(this, 'head')">兽头</button>
+    <button class="filter-btn" onclick="filterWorks(this, 'fullsuit')">全身兽装</button>
+    <button class="filter-btn" onclick="filterWorks(this, 'partial')">局部套装</button>
+    <button class="filter-btn" onclick="filterWorks(this, 'accessory')">配饰</button>
+  </div>
+
+  <div class="works-grid" id="worksGrid">
+    <!-- Generated by JS -->
+  </div>
+</section>
+
+<div class="section-divider"></div>
+
+<!-- SHOP SECTION -->
+<section id="shop" class="section-pad">
+  <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:24px;" class="reveal">
+    <div>
+      <div class="section-tag">成品商城</div>
+      <h2 class="section-title">精选<span>现货作品</span></h2>
+    </div>
+    <a href="#" class="btn btn-ghost" style="margin-bottom:8px;">查看全部 →</a>
+  </div>
+
+  <div class="shop-categories reveal" id="shopCategories">
+    <div class="cat-card active" onclick="filterShop(this,'all')">
+      <div class="cat-icon">🐾</div>
+      <div class="cat-name">全部</div>
+    </div>
+    <div class="cat-card" onclick="filterShop(this,'head')">
+      <div class="cat-icon">🦊</div>
+      <div class="cat-name">兽头</div>
+    </div>
+    <div class="cat-card" onclick="filterShop(this,'fullsuit')">
+      <div class="cat-icon">🐻</div>
+      <div class="cat-name">全身装</div>
+    </div>
+    <div class="cat-card" onclick="filterShop(this,'ear')">
+      <div class="cat-icon">🐰</div>
+      <div class="cat-name">兽耳</div>
+    </div>
+    <div class="cat-card" onclick="filterShop(this,'paw')">
+      <div class="cat-icon">🐾</div>
+      <div class="cat-name">兽手/脚</div>
+    </div>
+    <div class="cat-card" onclick="filterShop(this,'tail')">
+      <div class="cat-icon">🦎</div>
+      <div class="cat-name">兽尾</div>
+    </div>
+    <div class="cat-card" onclick="filterShop(this,'accessory')">
+      <div class="cat-icon">✨</div>
+      <div class="cat-name">配饰</div>
+    </div>
+  </div>
+
+  <div class="products-grid reveal" id="productsGrid">
+    <!-- Generated by JS -->
+  </div>
+</section>
+
+<div class="section-divider"></div>
+
+<!-- CUSTOM ORDER SECTION -->
+<section id="custom" class="section-pad">
+  <div class="custom-grid">
+    <div class="reveal-left">
+      <div class="section-header">
+        <div class="section-tag">私人定制</div>
+        <h2 class="section-title">专属定制<br><span>你的角色</span></h2>
+        <p class="section-desc">
+          从设计到制作，我们全程陪伴。将您脑海中的角色形象变成可以穿戴的现实。
+        </p>
+      </div>
+
+      <div class="custom-process">
+        <div class="process-step">
+          <div class="process-num">01</div>
+          <div class="process-content">
+            <h3>提交需求</h3>
+            <p>填写定制表单，上传参考图片，描述您的角色设定、配色、尺寸等详细需求</p>
+          </div>
+        </div>
+        <div class="process-step">
+          <div class="process-num">02</div>
+          <div class="process-content">
+            <h3>设计确认</h3>
+            <p>设计师根据需求绘制效果图，与您沟通确认设计细节，修改直至满意为止</p>
+          </div>
+        </div>
+        <div class="process-step">
+          <div class="process-num">03</div>
+          <div class="process-content">
+            <h3>付款制作</h3>
+            <p>确认设计后支付定金，正式进入制作流程，制作周期一般为6-12周</p>
+          </div>
+        </div>
+        <div class="process-step">
+          <div class="process-num">04</div>
+          <div class="process-content">
+            <h3>验收交付</h3>
+            <p>作品完成后拍摄视频/照片供您验收，确认无误后支付尾款，安全打包发货</p>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top:32px;">
+        <p style="font-size:0.8rem;color:var(--text-muted);margin-bottom:16px;letter-spacing:0.1em;">ALSO FIND US ON</p>
+        <div class="form-contacts">
+          <a href="#" class="contact-chip">
+            <span>💬</span> 微信咨询
+          </a>
+          <a href="#" class="contact-chip">
+            <span>📱</span> 抖音 @兽可梦
+          </a>
+          <a href="#" class="contact-chip">
+            <span>📕</span> 小红书
+          </a>
+          <a href="#" class="contact-chip">
+            <span>✉️</span> 邮件联系
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <div class="reveal-right">
+      <div class="custom-form-card">
+        <h3>开始定制</h3>
+        <p>填写以下信息，我们的设计师将在24小时内与您联系</p>
+
+        <div class="form-group">
+          <label class="form-label">您的昵称 *</label>
+          <input type="text" class="form-control" placeholder="请输入昵称">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">联系方式 *</label>
+          <input type="text" class="form-control" placeholder="微信号 / 手机号 / 邮箱">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">定制类型 *</label>
+          <select class="form-control">
+            <option value="">请选择定制类型</option>
+            <option value="head">兽头</option>
+            <option value="head-hands">兽头 + 兽手</option>
+            <option value="partial">局部套装（头+手+脚）</option>
+            <option value="fullsuit">全身兽装</option>
+            <option value="accessories">配饰定制</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">角色物种</label>
+          <input type="text" class="form-control" placeholder="如：狐狸、龙、猫、狼、原创物种...">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">参考图链接</label>
+          <input type="text" class="form-control" placeholder="角色参考图的链接地址">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">预算范围</label>
+          <select class="form-control">
+            <option value="">请选择预算范围</option>
+            <option value="1k-2k">￥1,000 - ￥2,000</option>
+            <option value="2k-5k">￥2,000 - ￥5,000</option>
+            <option value="5k-10k">￥5,000 - ￥10,000</option>
+            <option value="10k+">￥10,000 以上</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">补充说明</label>
+          <textarea class="form-control" placeholder="请描述您的详细需求、颜色偏好、特殊功能要求等..."></textarea>
+        </div>
+
+        <button class="btn btn-primary btn-large" style="width:100%;justify-content:center;margin-top:8px;" onclick="submitCustomOrder()">
+          <span>✦</span>
+          <span>提交定制申请</span>
+        </button>
+
+        <p style="font-size:0.75rem;color:var(--text-muted);text-align:center;margin-top:16px;">
+          提交即表示同意我们的服务条款 · 信息严格保密
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="section-divider"></div>
+
+<!-- TESTIMONIALS -->
+<section id="testimonials" class="section-pad">
+  <div class="section-header reveal" style="text-align:center;">
+    <div class="section-tag" style="justify-content:center;">客户评价</div>
+    <h2 class="section-title">他们的<span>真实评价</span></h2>
+    <p class="section-desc" style="margin:20px auto 0;">每一条评价都是我们前进的动力，感谢每一位信任兽可梦的伙伴</p>
+  </div>
+
+  <div class="testimonials-track" id="testimonialsGrid">
+    <!-- Generated by JS -->
+  </div>
+</section>
+
+<div class="section-divider"></div>
+
+<!-- DYNAMICS SECTION -->
+<section id="dynamics" class="section-pad">
+  <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:24px;" class="reveal">
+    <div>
+      <div class="section-tag">工作室动态</div>
+      <h2 class="section-title">最新<span>动态资讯</span></h2>
+    </div>
+    <a href="#" class="btn btn-ghost" style="margin-bottom:8px;">更多动态 →</a>
+  </div>
+
+  <div class="dynamics-grid reveal" id="dynamicsGrid">
+    <!-- Generated by JS -->
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-grid">
+    <div class="footer-brand">
+      <a href="#" class="nav-logo" style="margin-bottom:16px;display:inline-flex;" onclick="scrollToTop()">
+        <div class="nav-logo-icon">
+          <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M14 16C14 16 12 14 12 20C12 23 13 25 14 26L16 28L20 30L24 28L26 26C27 25 28 23 28 20C28 14 26 16 26 16C26 16 24 12 20 12C16 12 14 16 14 16Z" fill="url(#grad2)" opacity="0.9"/>
+            <ellipse cx="17" cy="18" rx="1.5" ry="2" fill="white"/>
+            <ellipse cx="23" cy="18" rx="1.5" ry="2" fill="white"/>
+            <circle cx="17" cy="18.5" r="0.8" fill="#1a0a2e"/>
+            <circle cx="23" cy="18.5" r="0.8" fill="#1a0a2e"/>
+            <defs><linearGradient id="grad2" x1="12" y1="12" x2="28" y2="30" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#7c3aed"/><stop offset="100%" stop-color="#f72585"/></linearGradient></defs>
+          </svg>
+        </div>
+        <div>
+          <span class="nav-logo-text">兽可梦</span>
+          <span class="nav-logo-sub">Show Come Studio</span>
+        </div>
+      </a>
+      <p>专注于高品质兽头与兽装的设计与制作。让每位兽迷都能拥有属于自己的毛茸茸身份。</p>
+      <div class="footer-social">
+        <a href="#" class="social-btn" title="微信">💬</a>
+        <a href="#" class="social-btn" title="抖音">🎵</a>
+        <a href="#" class="social-btn" title="小红书">📕</a>
+        <a href="#" class="social-btn" title="微博">🌐</a>
+        <a href="#" class="social-btn" title="B站">📺</a>
+      </div>
+    </div>
+
+    <div>
+      <div class="footer-title">快速链接</div>
+      <ul class="footer-links">
+        <li><a href="#about" onclick="navClick(event,'about')">关于我们</a></li>
+        <li><a href="#works" onclick="navClick(event,'works')">作品展示</a></li>
+        <li><a href="#shop" onclick="navClick(event,'shop')">成品商城</a></li>
+        <li><a href="#custom" onclick="navClick(event,'custom')">私人定制</a></li>
+        <li><a href="#dynamics" onclick="navClick(event,'dynamics')">工作室动态</a></li>
+      </ul>
+    </div>
+
+    <div>
+      <div class="footer-title">帮助中心</div>
+      <ul class="footer-links">
+        <li><a href="#">定制流程说明</a></li>
+        <li><a href="#">价格说明</a></li>
+        <li><a href="#">尺码指南</a></li>
+        <li><a href="#">保养与维护</a></li>
+        <li><a href="#">退换货政策</a></li>
+        <li><a href="#">常见问题</a></li>
+      </ul>
+    </div>
+
+    <div>
+      <div class="footer-title">订阅更新</div>
+      <p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:16px;line-height:1.6;">
+        订阅我们的邮件，获取最新作品、活动和优惠信息
+      </p>
+      <div class="newsletter-form">
+        <input type="email" placeholder="您的邮箱地址">
+        <button class="btn btn-primary" style="padding:12px 16px;border-radius:10px;" onclick="subscribeEmail()">订阅</button>
+      </div>
+      <div style="margin-top:24px;">
+        <div class="footer-title">联系我们</div>
+        <div style="font-size:0.85rem;color:var(--text-muted);line-height:2;">
+          <div>📧 studio@showcomefu.com</div>
+          <div>💬 微信: ShowComeFu</div>
+          <div>📞 周一至周六 10:00-20:00</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer-bottom">
+    <span>© 2024 兽可梦 Show Come Studio. 保留所有权利.</span>
+    <div style="display:flex;gap:24px;">
+      <a href="#" style="color:var(--text-muted);text-decoration:none;cursor:none;">隐私政策</a>
+      <a href="#" style="color:var(--text-muted);text-decoration:none;cursor:none;">服务条款</a>
+      <a href="#" style="color:var(--text-muted);text-decoration:none;cursor:none;">ICP备案</a>
+    </div>
+  </div>
+</footer>
+
+<!-- CART SIDEBAR -->
+<div class="cart-sidebar" id="cartSidebar">
+  <div class="cart-header">
+    <h2>购物车</h2>
+    <button onclick="toggleCart()" style="background:none;border:none;color:var(--text);font-size:1.5rem;cursor:none;">✕</button>
+  </div>
+  <div class="cart-items" id="cartItems">
+    <div class="cart-empty">
+      <div class="cart-empty-icon">🛒</div>
+      <p>购物车还是空的</p>
+      <p style="font-size:0.8rem;color:var(--text-muted);margin-top:8px;">去看看精选成品吧</p>
+    </div>
+  </div>
+  <div class="cart-footer" id="cartFooter" style="display:none;">
+    <div class="cart-total">
+      <span class="cart-total-label">合计</span>
+      <span class="cart-total-price" id="cartTotalPrice">¥0</span>
+    </div>
+    <button class="btn btn-primary btn-large" style="width:100%;justify-content:center;" onclick="checkout()">
+      前往结算
+    </button>
+    <button class="btn btn-ghost" style="width:100%;justify-content:center;margin-top:8px;" onclick="toggleCart()">
+      继续购物
+    </button>
+  </div>
+</div>
+
+<!-- CART OVERLAY -->
+<div id="cartOverlay" style="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:3999;display:none;" onclick="toggleCart()"></div>
+
+<!-- LOGIN MODAL -->
+<div class="modal-overlay" id="loginModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeLoginModal()">✕</button>
+    <h2 style="font-family:'Orbitron',monospace;font-size:1.5rem;margin-bottom:8px;">欢迎回来</h2>
+    <p style="color:var(--text-muted);font-size:0.85rem;margin-bottom:32px;">登录您的兽可梦账户</p>
+
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab(this,'phone')">手机号</button>
+      <button class="tab-btn" onclick="switchTab(this,'wechat')">微信登录</button>
+    </div>
+
+    <div id="tab-phone">
+      <div class="form-group">
+        <label class="form-label">手机号</label>
+        <input type="tel" class="form-control" placeholder="请输入手机号">
+      </div>
+      <div class="form-group" style="display:flex;gap:8px;">
+        <input type="text" class="form-control" placeholder="验证码" style="flex:1;">
+        <button class="btn btn-ghost" style="white-space:nowrap;" onclick="sendCode()">获取验证码</button>
+      </div>
+      <button class="btn btn-primary btn-large" style="width:100%;justify-content:center;margin-top:16px;" onclick="loginSubmit()">
+        登录 / 注册
+      </button>
+    </div>
+
+    <div id="tab-wechat" style="display:none;text-align:center;padding:40px 0;">
+      <div style="width:160px;height:160px;background:white;border-radius:16px;margin:0 auto;display:flex;align-items:center;justify-content:center;font-size:3rem;">
+        📱
+      </div>
+      <p style="margin-top:20px;color:var(--text-muted);font-size:0.85rem;">使用微信扫描二维码登录</p>
+    </div>
+  </div>
+</div>
+
+<!-- SUCCESS MODAL -->
+<div class="modal-overlay" id="successModal">
+  <div class="modal" style="text-align:center;padding:60px 48px;">
+    <button class="modal-close" onclick="closeModal('successModal')">✕</button>
+    <div style="font-size:4rem;margin-bottom:24px;">🎉</div>
+    <h2 style="font-family:'Orbitron',monospace;font-size:1.5rem;margin-bottom:12px;">提交成功！</h2>
+    <p style="color:var(--text-muted);line-height:1.8;margin-bottom:32px;">
+      感谢您的定制申请！我们的设计师将在24小时内通过您填写的联系方式与您联系，请保持手机畅通。
+    </p>
+    <button class="btn btn-primary btn-large" style="margin:0 auto;" onclick="closeModal('successModal')">
+      好的，期待你们联系 ✦
+    </button>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast">
+  <span class="toast-icon">✓</span>
+  <span id="toastMsg">操作成功</span>
+</div>
+
+<!-- PRODUCT DETAIL MODAL -->
+<div class="modal-overlay" id="productModal">
+  <div class="modal" style="max-width:700px;padding:0;overflow:hidden;">
+    <button class="modal-close" onclick="closeModal('productModal')" style="z-index:10;">✕</button>
+    <div id="productModalContent" style="display:grid;grid-template-columns:1fr 1fr;min-height:400px;">
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================
+// DATA
+// ============================================
+const works = [
+  { id:1, name:'暗夜狐灵', type:'head', typeName:'兽头', likes:328, views:2140, featured:true, color:'#7c3aed', emoji:'🦊' },
+  { id:2, name:'星辰龙骑', type:'fullsuit', typeName:'全身兽装', likes:512, views:3780, color:'#06d6a0', emoji:'🐉' },
+  { id:3, name:'月影猫娘', type:'head', typeName:'兽头', likes:245, views:1890, color:'#f72585', emoji:'🐱' },
+  { id:4, name:'雪原熊王', type:'fullsuit', typeName:'全身兽装', likes:189, views:1230, color:'#4cc9f0', emoji:'🐻' },
+  { id:5, name:'电光豹装', type:'partial', typeName:'局部套装', likes:431, views:2670, color:'#f4a261', emoji:'🐆' },
+  { id:6, name:'森精灵耳', type:'accessory', typeName:'配饰', likes:156, views:890, color:'#06d6a0', emoji:'🍃' },
+];
+
+const products = [
+  { id:1, name:'火焰狐狸兽头', category:'head', price:2800, oldPrice:3200, badge:'hot', emoji:'🦊', color:'#f4a261' },
+  { id:2, name:'蓝冰狼全身装', category:'fullsuit', price:8800, badge:'new', emoji:'🐺', color:'#4cc9f0' },
+  { id:3, name:'粉樱猫耳套装', category:'ear', price:380, badge:'sale', emoji:'🐱', color:'#f72585' },
+  { id:4, name:'草木鹿兽爪', category:'paw', price:680, badge:null, emoji:'🦌', color:'#06d6a0' },
+  { id:5, name:'暗影豹头', category:'head', price:3200, badge:'new', emoji:'🐆', color:'#7c3aed' },
+  { id:6, name:'毛茸虎爪', category:'paw', price:520, badge:null, emoji:'🐯', color:'#f4a261' },
+  { id:7, name:'精灵兔耳', category:'ear', price:280, badge:'sale', emoji:'🐰', color:'#a855f7' },
+  { id:8, name:'龙纹尾巴', category:'tail', price:880, badge:'new', emoji:'🐉', color:'#06d6a0' },
+];
+
+const testimonials = [
+  { text:'真的超级超级满意！设计师完全get到了我的想法，兽头做工精细，毛绒手感超棒，穿上之后整个人都更有自信了！', author:'小狐七', role:'全身兽装定制客户', stars:5 },
+  { text:'工作室的老师们超级耐心，前后改了好几版设计图，直到我完全满意才开始制作。制作周期也在预期之内，推荐！', author:'阿龙', role:'兽头定制客户', stars:5 },
+  { text:'成品现货质量很好，和图片描述完全一致，包装也很仔细，跨省运输没有任何损坏。会继续支持的！', author:'苹果汁', role:'成品购买客户', stars:5 },
+  { text:'已经是第三次定制了，每次都有新的惊喜。这次的电光豹是我最喜欢的一套，上展会回头率超高！', author:'電閃萌主', role:'老客户·局部套装', stars:5 },
+  { text:'从联系到收到成品全程体验都很好，老师们专业且友善，对材料和工艺的解释很详细。值得信赖的工作室！', author:'柴犬小年', role:'初次定制客户', stars:5 },
+  { text:'兽头的眼睛做得特别有灵气，看着就像真的一样。会发光的眼睛是亮点！感谢工作室圆了我多年的兽梦。', author:'Aurora', role:'发光兽头定制客户', stars:5 },
+];
+
+const dynamics = [
+  { type:'video', typeName:'视频', title:'《暗夜狐灵》制作全记录 —— 从设计稿到成品的60天', date:'2024-12-01', excerpt:'跟随镜头，见证一件精品兽头从一张简单草图，到最终成品的完整制作过程。每一步都充满惊喜...', likes:892, comments:47, featured:true },
+  { type:'photo', typeName:'图集', title:'2024年秋季作品集正式发布', date:'2024-11-20', excerpt:'本季度完成的20件定制作品精选展示，涵盖兽头、全身装、局部套装等多种类型...', likes:634, comments:38, featured:false },
+  { type:'article', typeName:'文章', title:'如何选择适合自己的兽头类型？完整指南', date:'2024-11-10', excerpt:'新手入门必看！我们整理了关于兽头选择的全方位指南，帮助你做出最适合的选择...', likes:421, comments:29, featured:false },
+];
+
+// ============================================
+// CART STATE
+// ============================================
+let cart = [];
+let cartOpen = false;
+
+// ============================================
+// CURSOR
+// ============================================
+const cursor = document.getElementById('cursor');
+const cursorRing = document.getElementById('cursor-ring');
+let mx = 0, my = 0, rx = 0, ry = 0;
+
+document.addEventListener('mousemove', e => {
+  mx = e.clientX; my = e.clientY;
+  cursor.style.left = mx - 6 + 'px';
+  cursor.style.top = my - 6 + 'px';
+});
+
+function animateCursor() {
+  rx += (mx - rx - 20) * 0.12;
+  ry += (my - ry - 20) * 0.12;
+  cursorRing.style.left = rx + 'px';
+  cursorRing.style.top = ry + 'px';
+  requestAnimationFrame(animateCursor);
+}
+animateCursor();
+
+document.querySelectorAll('a,button,[onclick]').forEach(el => {
+  el.addEventListener('mouseenter', () => {
+    cursor.style.transform = 'scale(2)';
+    cursorRing.style.width = '60px';
+    cursorRing.style.height = '60px';
+    cursorRing.style.borderColor = 'rgba(247,37,133,0.6)';
+  });
+  el.addEventListener('mouseleave', () => {
+    cursor.style.transform = 'scale(1)';
+    cursorRing.style.width = '40px';
+    cursorRing.style.height = '40px';
+    cursorRing.style.borderColor = 'rgba(124,58,237,0.6)';
+  });
+});
+
+// ============================================
+// HERO THREE.JS
+// ============================================
+(function initHero() {
+  const canvas = document.getElementById('hero-canvas');
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setClearColor(0x000000, 0);
+
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+  camera.position.z = 5;
+
+  // Particle system
+  const count = 3000;
+  const positions = new Float32Array(count * 3);
+  const colors = new Float32Array(count * 3);
+  const sizes = new Float32Array(count);
+
+  const colorPalette = [
+    new THREE.Color('#7c3aed'),
+    new THREE.Color('#f72585'),
+    new THREE.Color('#06d6a0'),
+    new THREE.Color('#4cc9f0'),
+  ];
+
+  for (let i = 0; i < count; i++) {
+    const r = 8 + Math.random() * 6;
+    const theta = Math.random() * Math.PI * 2;
+    const phi = Math.acos(2 * Math.random() - 1);
+    positions[i*3] = r * Math.sin(phi) * Math.cos(theta);
+    positions[i*3+1] = r * Math.sin(phi) * Math.sin(theta);
+    positions[i*3+2] = r * Math.cos(phi);
+    const c = colorPalette[Math.floor(Math.random() * colorPalette.length)];
+    colors[i*3] = c.r; colors[i*3+1] = c.g; colors[i*3+2] = c.b;
+    sizes[i] = Math.random() * 3 + 0.5;
+  }
+
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  geo.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+
+  const mat = new THREE.PointsMaterial({
+    size: 0.04,
+    vertexColors: true,
+    transparent: true,
+    opacity: 0.7,
+    sizeAttenuation: true,
+  });
+
+  const particles = new THREE.Points(geo, mat);
+  scene.add(particles);
+
+  // Central glowing orb
+  const orbGeo = new THREE.SphereGeometry(1.2, 64, 64);
+  const orbMat = new THREE.MeshPhongMaterial({
+    color: 0x7c3aed,
+    emissive: 0x3a0ca3,
+    transparent: true,
+    opacity: 0.3,
+    wireframe: false,
+  });
+  const orb = new THREE.Mesh(orbGeo, orbMat);
+  scene.add(orb);
+
+  // Wireframe orb
+  const wireGeo = new THREE.IcosahedronGeometry(1.5, 2);
+  const wireMat = new THREE.MeshBasicMaterial({
+    color: 0x7c3aed,
+    wireframe: true,
+    transparent: true,
+    opacity: 0.15,
+  });
+  const wire = new THREE.Mesh(wireGeo, wireMat);
+  scene.add(wire);
+
+  // Rings
+  for (let i = 0; i < 3; i++) {
+    const ringGeo = new THREE.TorusGeometry(2 + i * 0.8, 0.005, 16, 200);
+    const ringMat = new THREE.MeshBasicMaterial({
+      color: [0x7c3aed, 0xf72585, 0x06d6a0][i],
+      transparent: true,
+      opacity: 0.4,
+    });
+    const ring = new THREE.Mesh(ringGeo, ringMat);
+    ring.rotation.x = Math.PI / (2 + i);
+    ring.rotation.y = i * 0.5;
+    scene.add(ring);
+  }
+
+  // Lights
+  const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+  scene.add(ambientLight);
+  const light1 = new THREE.PointLight(0x7c3aed, 2, 10);
+  light1.position.set(3, 3, 3);
+  scene.add(light1);
+  const light2 = new THREE.PointLight(0xf72585, 1.5, 10);
+  light2.position.set(-3, -2, 2);
+  scene.add(light2);
+
+  // Mouse interaction
+  let targetX = 0, targetY = 0;
+  document.addEventListener('mousemove', e => {
+    targetX = (e.clientX / window.innerWidth - 0.5) * 0.8;
+    targetY = (e.clientY / window.innerHeight - 0.5) * 0.8;
+  });
+
+  // Resize
+  const onResize = () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  };
+  window.addEventListener('resize', onResize);
+  onResize();
+
+  let t = 0;
+  function animate() {
+    requestAnimationFrame(animate);
+    t += 0.005;
+
+    particles.rotation.y += 0.001;
+    particles.rotation.x += 0.0005;
+
+    wire.rotation.y = targetX * 0.5 + t * 0.3;
+    wire.rotation.x = -targetY * 0.5 + Math.sin(t * 0.5) * 0.2;
+    orb.rotation.y = t * 0.5;
+
+    // Animate rings
+    const rings = scene.children.filter(c => c.geometry && c.geometry.type === 'TorusGeometry');
+    rings.forEach((r, i) => {
+      r.rotation.z = t * (0.3 + i * 0.1);
+      r.rotation.x = Math.PI / (2 + i) + targetY * 0.3;
+    });
+
+    camera.position.x += (targetX * 2 - camera.position.x) * 0.05;
+    camera.position.y += (-targetY * 2 - camera.position.y) * 0.05;
+    camera.lookAt(scene.position);
+
+    light1.position.x = Math.cos(t) * 4;
+    light1.position.z = Math.sin(t) * 4;
+
+    renderer.render(scene, camera);
+  }
+  animate();
+})();
+
+// ============================================
+// ABOUT THREE.JS CANVAS
+// ============================================
+(function initAbout() {
+  const canvas = document.getElementById('about-canvas');
+  if (!canvas) return;
+
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+  renderer.setClearColor(0x000000, 0);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 100);
+  camera.position.z = 4;
+
+  // Geometric fursuit head approximation
+  const headGeo = new THREE.SphereGeometry(1, 32, 32);
+  const headMat = new THREE.MeshPhongMaterial({
+    color: 0x7c3aed,
+    emissive: 0x2d0a6e,
+    shininess: 80,
+  });
+  const head = new THREE.Mesh(headGeo, headMat);
+  scene.add(head);
+
+  // Ear left
+  const earGeo = new THREE.ConeGeometry(0.35, 0.6, 8);
+  const earMatL = new THREE.MeshPhongMaterial({ color: 0xf72585, emissive: 0x6d0030 });
+  const earL = new THREE.Mesh(earGeo, earMatL);
+  earL.position.set(-0.55, 1.1, 0);
+  earL.rotation.z = -0.3;
+  scene.add(earL);
+
+  // Ear right
+  const earR = new THREE.Mesh(earGeo, earMatL.clone());
+  earR.position.set(0.55, 1.1, 0);
+  earR.rotation.z = 0.3;
+  scene.add(earR);
+
+  // Eyes
+  const eyeGeo = new THREE.SphereGeometry(0.15, 16, 16);
+  const eyeMat = new THREE.MeshPhongMaterial({ color: 0x06d6a0, emissive: 0x02614a, shininess: 200 });
+  const eyeL = new THREE.Mesh(eyeGeo, eyeMat);
+  eyeL.position.set(-0.35, 0.15, 0.9);
+  scene.add(eyeL);
+  const eyeR = new THREE.Mesh(eyeGeo, eyeMat.clone());
+  eyeR.position.set(0.35, 0.15, 0.9);
+  scene.add(eyeR);
+
+  // Muzzle
+  const muzzleGeo = new THREE.SphereGeometry(0.35, 16, 16);
+  const muzzleMat = new THREE.MeshPhongMaterial({ color: 0xc084fc, emissive: 0x4c1d95 });
+  const muzzle = new THREE.Mesh(muzzleGeo, muzzleMat);
+  muzzle.position.set(0, -0.2, 0.85);
+  muzzle.scale.set(1, 0.7, 0.8);
+  scene.add(muzzle);
+
+  // Group
+  const group = new THREE.Group();
+  group.add(head, earL, earR, eyeL, eyeR, muzzle);
+  scene.add(group);
+
+  // Orbit particles
+  const pCount = 200;
+  const pPos = new Float32Array(pCount * 3);
+  for (let i = 0; i < pCount; i++) {
+    const r = 2 + Math.random();
+    const a = Math.random() * Math.PI * 2;
+    pPos[i*3] = r * Math.cos(a);
+    pPos[i*3+1] = (Math.random() - 0.5) * 2;
+    pPos[i*3+2] = r * Math.sin(a);
+  }
+  const pGeo = new THREE.BufferGeometry();
+  pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
+  const pMat = new THREE.PointsMaterial({ color: 0x7c3aed, size: 0.04, transparent: true, opacity: 0.6 });
+  scene.add(new THREE.Points(pGeo, pMat));
+
+  const aLight = new THREE.AmbientLight(0xffffff, 0.6);
+  scene.add(aLight);
+  const pLight = new THREE.PointLight(0x7c3aed, 3, 10);
+  pLight.position.set(3, 3, 3);
+  scene.add(pLight);
+  const pLight2 = new THREE.PointLight(0x06d6a0, 2, 10);
+  pLight2.position.set(-3, -2, 2);
+  scene.add(pLight2);
+
+  const resizeAbout = () => {
+    const w = canvas.clientWidth, h = canvas.clientHeight;
+    renderer.setSize(w, h, false);
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+  };
+  window.addEventListener('resize', resizeAbout);
+  resizeAbout();
+
+  let targetRX = 0, targetRY = 0;
+  document.addEventListener('mousemove', e => {
+    targetRX = (e.clientY / window.innerHeight - 0.5) * 0.6;
+    targetRY = (e.clientX / window.innerWidth - 0.5) * 0.8;
+  });
+
+  let ta = 0;
+  function animateAbout() {
+    requestAnimationFrame(animateAbout);
+    ta += 0.01;
+    group.rotation.y += (targetRY - group.rotation.y) * 0.05;
+    group.rotation.x += (targetRX - group.rotation.x) * 0.05;
+    group.position.y = Math.sin(ta * 0.8) * 0.1;
+
+    // Blink eyes
+    const blink = Math.abs(Math.sin(ta * 0.3));
+    eyeL.scale.y = 0.1 + blink * 0.9;
+    eyeR.scale.y = 0.1 + blink * 0.9;
+
+    renderer.render(scene, camera);
+  }
+  animateAbout();
+})();
+
+// ============================================
+// GENERATE WORKS
+// ============================================
+function generateWorkCanvas(el, color, emoji) {
+  const canvas = document.createElement('canvas');
+  canvas.style.width = '100%';
+  canvas.style.height = '100%';
+  canvas.style.position = 'absolute';
+  canvas.style.inset = '0';
+  el.appendChild(canvas);
+
+  const resize = () => {
+    canvas.width = el.offsetWidth;
+    canvas.height = el.offsetHeight;
+    drawWork();
+  };
+
+  const drawWork = () => {
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width, h = canvas.height;
+    if (!w || !h) return;
+
+    // Background gradient
+    const grad = ctx.createRadialGradient(w/2, h/2, 0, w/2, h/2, w * 0.8);
+    grad.addColorStop(0, color + '33');
+    grad.addColorStop(1, '#0a0a0f');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, w, h);
+
+    // Grid
+    ctx.strokeStyle = color + '22';
+    ctx.lineWidth = 1;
+    const step = 30;
+    for (let x = 0; x < w; x += step) {
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+    }
+    for (let y = 0; y < h; y += step) {
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+    }
+
+    // Glow circle
+    const glow = ctx.createRadialGradient(w/2, h/2, 0, w/2, h/2, Math.min(w,h) * 0.4);
+    glow.addColorStop(0, color + '44');
+    glow.addColorStop(1, 'transparent');
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(w/2, h/2, Math.min(w,h) * 0.4, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Emoji
+    ctx.font = `${Math.min(w,h) * 0.35}px serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(emoji, w/2, h/2);
+  };
+
+  setTimeout(resize, 100);
+  window.addEventListener('resize', resize);
+}
+
+function renderWorks(filter = 'all') {
+  const grid = document.getElementById('worksGrid');
+  const filtered = filter === 'all' ? works : works.filter(w => w.type === filter);
+
+  grid.innerHTML = filtered.map((w, i) => `
+    <div class="work-card ${i===0&&filter==='all'?'featured':''}" data-type="${w.type}" onclick="openWorkDetail(${w.id})">
+      <div class="work-image" id="wi-${w.id}">
+        <div class="work-image-overlay">
+          <div class="work-image-actions">
+            <button class="btn btn-ghost" style="padding:8px 16px;font-size:0.8rem;">查看详情</button>
+          </div>
+        </div>
+      </div>
+      <div class="work-info">
+        <div class="work-type">${w.typeName}</div>
+        <div class="work-name">${w.name}</div>
+        <div class="work-meta">
+          <span class="work-likes">❤️ ${w.likes}</span>
+          <span class="work-views">👁 ${w.views}</span>
+        </div>
+      </div>
+    </div>
+  `).join('');
+
+  filtered.forEach(w => {
+    const el = document.getElementById('wi-' + w.id);
+    if (el) generateWorkCanvas(el, w.color, w.emoji);
+  });
+}
+
+function filterWorks(btn, type) {
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderWorks(type);
+}
+
+// ============================================
+// GENERATE PRODUCTS
+// ============================================
+function generateProductCanvas(el, color, emoji) {
+  const canvas = document.createElement('canvas');
+  canvas.style.width = '100%';
+  canvas.style.height = '100%';
+  canvas.style.position = 'absolute';
+  canvas.style.inset = '0';
+  el.appendChild(canvas);
+
+  const resize = () => {
+    canvas.width = el.offsetWidth;
+    canvas.height = el.offsetHeight;
+    draw();
+  };
+
+  const draw = () => {
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width, h = canvas.height;
+    if (!w || !h) return;
+
+    const grad = ctx.createLinearGradient(0, 0, w, h);
+    grad.addColorStop(0, '#111118');
+    grad.addColorStop(1, color + '22');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, w, h);
+
+    // Hexagonal pattern
+    ctx.strokeStyle = color + '18';
+    ctx.lineWidth = 1;
+    const hex = 25;
+    for (let row = 0; row < h/hex + 2; row++) {
+      for (let col = 0; col < w/hex + 2; col++) {
+        const cx = col * hex * 1.732 + (row % 2) * hex * 0.866;
+        const cy = row * hex * 1.5;
+        ctx.beginPath();
+        for (let a = 0; a < 6; a++) {
+          const ang = (a * 60 - 30) * Math.PI / 180;
+          const px = cx + hex * 0.8 * Math.cos(ang);
+          const py = cy + hex * 0.8 * Math.sin(ang);
+          a === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+        ctx.stroke();
+      }
+    }
+
+    // Glow
+    const g2 = ctx.createRadialGradient(w/2, h/2, 0, w/2, h/2, Math.min(w,h)*0.45);
+    g2.addColorStop(0, color + '33');
+    g2.addColorStop(1, 'transparent');
+    ctx.fillStyle = g2;
+    ctx.fillRect(0, 0, w, h);
+
+    // Emoji
+    ctx.font = `${Math.min(w,h) * 0.4}px serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(emoji, w/2, h/2);
+  };
+
+  setTimeout(resize, 100);
+  window.addEventListener('resize', resize);
+}
+
+function renderProducts(filter = 'all') {
+  const grid = document.getElementById('productsGrid');
+  const filtered = filter === 'all' ? products : products.filter(p => p.category === filter);
+
+  grid.innerHTML = filtered.map(p => `
+    <div class="product-card" data-cat="${p.category}" onclick="openProductDetail(${p.id})">
+      <div class="product-image" id="pi-${p.id}" style="position:relative;">
+        ${p.badge ? `<div class="product-badge badge-${p.badge}">${p.badge==='new'?'新品':p.badge==='hot'?'热销':'特惠'}</div>` : ''}
+      </div>
+      <div class="product-info">
+        <div class="product-name">${p.name}</div>
+        <div class="product-category">${{head:'兽头',fullsuit:'全身装',ear:'兽耳',paw:'兽手/脚',tail:'兽尾',accessory:'配饰'}[p.category]||p.category}</div>
+        <div class="product-footer">
+          <div>
+            <span class="product-price">¥${p.price.toLocaleString()}</span>
+            ${p.oldPrice ? `<span class="product-price-old">¥${p.oldPrice.toLocaleString()}</span>` : ''}
+          </div>
+          <button class="btn-add-cart" onclick="event.stopPropagation();addToCart(${p.id})">+</button>
+        </div>
+      </div>
+    </div>
+  `).join('');
+
+  filtered.forEach(p => {
+    const el = document.getElementById('pi-' + p.id);
+    if (el) generateProductCanvas(el, p.color, p.emoji);
+  });
+}
+
+function filterShop(el, cat) {
+  document.querySelectorAll('.cat-card').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  renderProducts(cat);
+}
+
+// ============================================
+// GENERATE TESTIMONIALS
+// ============================================
+function renderTestimonials() {
+  document.getElementById('testimonialsGrid').innerHTML = testimonials.map(t => `
+    <div class="testimonial-card">
+      <div class="testimonial-stars">${'⭐'.repeat(t.stars)}</div>
+      <div class="testimonial-text">"${t.text}"</div>
+      <div class="testimonial-author">
+        <div class="author-avatar">${t.author[0]}</div>
+        <div class="author-info">
+          <div class="author-name">${t.author}</div>
+          <div class="author-role">${t.role}</div>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ============================================
+// GENERATE DYNAMICS
+// ============================================
+function generateDynCanvas(el, type) {
+  const colors = { video: '#f72585', photo: '#7c3aed', article: '#06d6a0' };
+  const emojis = { video: '🎬', photo: '📸', article: '📝' };
+  const canvas = document.createElement('canvas');
+  canvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%';
+  el.appendChild(canvas);
+
+  const draw = () => {
+    canvas.width = el.offsetWidth || 400;
+    canvas.height = el.offsetHeight || 200;
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width, h = canvas.height;
+    const c = colors[type] || '#7c3aed';
+
+    const gr = ctx.createLinearGradient(0, 0, w, h);
+    gr.addColorStop(0, '#0d0d1a');
+    gr.addColorStop(1, c + '22');
+    ctx.fillStyle = gr;
+    ctx.fillRect(0, 0, w, h);
+
+    // Diagonal lines
+    ctx.strokeStyle = c + '15';
+    ctx.lineWidth = 1;
+    for (let i = -h; i < w + h; i += 30) {
+      ctx.beginPath();
+      ctx.moveTo(i, 0);
+      ctx.lineTo(i + h, h);
+      ctx.stroke();
+    }
+
+    // Center glow
+    const g2 = ctx.createRadialGradient(w/2, h/2, 0, w/2, h/2, Math.min(w,h)*0.5);
+    g2.addColorStop(0, c + '44');
+    g2.addColorStop(1, 'transparent');
+    ctx.fillStyle = g2;
+    ctx.fillRect(0, 0, w, h);
+
+    ctx.font = `${Math.min(w,h)*0.3}px serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(emojis[type] || '📄', w/2, h/2);
+  };
+
+  setTimeout(draw, 150);
+  window.addEventListener('resize', draw);
+}
+
+function renderDynamics() {
+  const grid = document.getElementById('dynamicsGrid');
+  grid.innerHTML = dynamics.map(d => `
+    <div class="dynamic-card ${d.featured ? 'featured' : ''}">
+      <div class="dynamic-image" id="di-${d.type}-${Math.random().toString(36).substr(2,5)}" style="position:relative;">
+        <div class="dynamic-type-badge type-${d.type}">${d.typeName}</div>
+      </div>
+      <div class="dynamic-content">
+        <div class="dynamic-date">${d.date}</div>
+        <div class="dynamic-title">${d.title}</div>
+        <div class="dynamic-excerpt">${d.excerpt}</div>
+        <div class="dynamic-meta">
+          <span>❤️ ${d.likes}</span>
+          <span>💬 ${d.comments}</span>
+          <span style="margin-left:auto;color:var(--accent);font-size:0.8rem;cursor:none;">阅读全文 →</span>
+        </div>
+      </div>
+    </div>
+  `).join('');
+
+  document.querySelectorAll('.dynamic-image').forEach((el, i) => {
+    generateDynCanvas(el, dynamics[i]?.type || 'article');
+  });
+}
+
+// ============================================
+// CART FUNCTIONS
+// ============================================
+function addToCart(productId) {
+  const product = products.find(p => p.id === productId);
+  if (!product) return;
+
+  const existing = cart.find(c => c.id === productId);
+  if (existing) {
+    existing.qty = (existing.qty || 1) + 1;
+  } else {
+    cart.push({ ...product, qty: 1 });
+  }
+
+  updateCartUI();
+  showToast(`已添加 "${product.name}" 到购物车 🛒`);
+}
+
+function removeFromCart(productId) {
+  cart = cart.filter(c => c.id !== productId);
+  updateCartUI();
+}
+
+function updateCartUI() {
+  const count = cart.reduce((a, c) => a + (c.qty || 1), 0);
+  const total = cart.reduce((a, c) => a + c.price * (c.qty || 1), 0);
+
+  const countEl = document.getElementById('cartNavCount');
+  countEl.textContent = count;
+  countEl.classList.toggle('visible', count > 0);
+
+  const itemsEl = document.getElementById('cartItems');
+  const footerEl = document.getElementById('cartFooter');
+
+  if (cart.length === 0) {
+    itemsEl.innerHTML = `
+      <div class="cart-empty">
+        <div class="cart-empty-icon">🛒</div>
+        <p>购物车还是空的</p>
+        <p style="font-size:0.8rem;color:var(--text-muted);margin-top:8px;">去看看精选成品吧</p>
+      </div>`;
+    footerEl.style.display = 'none';
+  } else {
+    itemsEl.innerHTML = cart.map(item => `
+      <div class="cart-item">
+        <div class="cart-item-image">${item.emoji}</div>
+        <div class="cart-item-info">
+          <div class="cart-item-name">${item.name}</div>
+          <div class="cart-item-price">¥${item.price.toLocaleString()} × ${item.qty || 1}</div>
+        </div>
+        <button class="cart-item-remove" onclick="removeFromCart(${item.id})">✕</button>
+      </div>
+    `).join('');
+    footerEl.style.display = 'block';
+    document.getElementById('cartTotalPrice').textContent = '¥' + total.toLocaleString();
+  }
+}
+
+function toggleCart() {
+  cartOpen = !cartOpen;
+  document.getElementById('cartSidebar').classList.toggle('open', cartOpen);
+  document.getElementById('cartOverlay').style.display = cartOpen ? 'block' : 'none';
+}
+
+function checkout() {
+  toggleCart();
+  showToast('结算功能即将开放，敬请期待 ✨');
+}
+
+// ============================================
+// MODALS
+// ============================================
+function openLoginModal() {
+  document.getElementById('loginModal').classList.add('open');
+}
+function closeLoginModal() {
+  document.getElementById('loginModal').classList.remove('open');
+}
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+}
+
+document.querySelectorAll('.modal-overlay').forEach(el => {
+  el.addEventListener('click', e => {
+    if (e.target === el) el.classList.remove('open');
+  });
+});
+
+function switchTab(btn, tab) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('tab-phone').style.display = tab === 'phone' ? 'block' : 'none';
+  document.getElementById('tab-wechat').style.display = tab === 'wechat' ? 'block' : 'none';
+}
+
+function sendCode() {
+  showToast('验证码已发送 📱');
+}
+
+function loginSubmit() {
+  closeLoginModal();
+  showToast('登录成功，欢迎回来！🎉');
+}
+
+// ============================================
+// PRODUCT DETAIL
+// ============================================
+function openProductDetail(id) {
+  const p = products.find(x => x.id === id);
+  if (!p) return;
+
+  document.getElementById('productModalContent').innerHTML = `
+    <div style="background:var(--secondary);position:relative;overflow:hidden;min-height:300px;" id="pdCanvas">
+    </div>
+    <div style="padding:32px;display:flex;flex-direction:column;justify-content:space-between;">
+      <div>
+        ${p.badge ? `<div class="product-badge badge-${p.badge}" style="position:static;display:inline-block;margin-bottom:12px;">${p.badge==='new'?'新品':p.badge==='hot'?'热销':'特惠'}</div>` : ''}
+        <h2 style="font-family:'Orbitron',monospace;font-size:1.4rem;margin-bottom:8px;">${p.name}</h2>
+        <div style="color:var(--text-muted);font-size:0.8rem;margin-bottom:20px;">${{head:'兽头',fullsuit:'全身兽装',ear:'兽耳',paw:'兽手/脚',tail:'兽尾',accessory:'配饰'}[p.category]}</div>
+        <div style="font-family:'Orbitron',monospace;font-size:2rem;font-weight:700;color:var(--accent2);margin-bottom:24px;">
+          ¥${p.price.toLocaleString()}
+          ${p.oldPrice ? `<span style="font-size:1rem;color:var(--text-muted);text-decoration:line-through;font-weight:400;margin-left:8px;">¥${p.oldPrice.toLocaleString()}</span>` : ''}
+        </div>
+        <div style="color:var(--text-muted);font-size:0.85rem;line-height:1.8;margin-bottom:24px;">
+          精品${p.name}，采用高级毛绒面料精心制作，手感柔软，细节精致。适合展会、派对、日常拍摄等多种场合。
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px;">
+          <span style="padding:4px 12px;border-radius:100px;border:1px solid var(--glass-border);font-size:0.75rem;color:var(--text-muted);">高级毛绒面料</span>
+          <span style="padding:4px 12px;border-radius:100px;border:1px solid var(--glass-border);font-size:0.75rem;color:var(--text-muted);">手工精制</span>
+          <span style="padding:4px 12px;border-radius:100px;border:1px solid var(--glass-border);font-size:0.75rem;color:var(--text-muted);">现货发货</span>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:12px;">
+        <button class="btn btn-primary btn-large" style="justify-content:center;" onclick="addToCart(${p.id});closeModal('productModal')">
+          加入购物车 🛒
+        </button>
+        <button class="btn btn-ghost btn-large" style="justify-content:center;" onclick="closeModal('productModal')">
+          继续浏览
+        </button>
+      </div>
+    </div>
+  `;
+
+  const pdCanvas = document.getElementById('pdCanvas');
+  if (pdCanvas) generateProductCanvas(pdCanvas, p.color, p.emoji);
+
+  document.getElementById('productModal').classList.add('open');
+}
+
+function openWorkDetail(id) {
+  // Simplified - shows toast for now
+  showToast('正在加载作品详情...');
+}
+
+// ============================================
+// TOAST
+// ============================================
+function showToast(msg) {
+  const toast = document.getElementById('toast');
+  document.getElementById('toastMsg').textContent = msg;
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 3000);
+}
+
+// ============================================
+// FORM SUBMIT
+// ============================================
+function submitCustomOrder() {
+  document.getElementById('successModal').classList.add('open');
+}
+
+function subscribeEmail() {
+  showToast('订阅成功！感谢关注兽可梦 💌');
+}
+
+// ============================================
+// NAV FUNCTIONS
+// ============================================
+function navClick(e, section) {
+  e.preventDefault();
+  document.getElementById(section)?.scrollIntoView({ behavior: 'smooth' });
+}
+
+function scrollToTop() {
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function toggleMobileMenu() {
+  document.getElementById('mobileMenu').classList.toggle('open');
+}
+
+function closeMobileMenu() {
+  document.getElementById('mobileMenu').classList.remove('open');
+}
+
+// Nav scroll effect
+window.addEventListener('scroll', () => {
+  document.getElementById('navbar').classList.toggle('scrolled', window.scrollY > 50);
+});
+
+// ============================================
+// SCROLL REVEAL
+// ============================================
+const revealObserver = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.classList.add('visible');
+    }
+  });
+}, { threshold: 0.1, rootMargin: '0px 0px -50px 0px' });
+
+document.querySelectorAll('.reveal, .reveal-left, .reveal-right').forEach(el => {
+  revealObserver.observe(el);
+});
+
+// ============================================
+// COUNT UP ANIMATION
+// ============================================
+function countUp(el, target, suffix = '') {
+  let current = 0;
+  const step = target / 60;
+  const timer = setInterval(() => {
+    current += step;
+    if (current >= target) {
+      current = target;
+      clearInterval(timer);
+    }
+    el.textContent = Math.floor(current) + suffix;
+  }, 25);
+}
+
+const statsObserver = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      countUp(document.getElementById('stat1'), 500, '+');
+      countUp(document.getElementById('stat2'), 300, '+');
+      countUp(document.getElementById('stat3'), 6, '+');
+      statsObserver.disconnect();
+    }
+  });
+}, { threshold: 0.5 });
+
+const heroSection = document.getElementById('hero');
+if (heroSection) statsObserver.observe(heroSection);
+
+// ============================================
+// LOADER
+// ============================================
+window.addEventListener('load', () => {
+  // Initialize all content
+  renderWorks();
+  renderProducts();
+  renderTestimonials();
+  renderDynamics();
+
+  // Re-observe newly added elements
+  document.querySelectorAll('.reveal, .reveal-left, .reveal-right').forEach(el => {
+    revealObserver.observe(el);
+  });
+
+  setTimeout(() => {
+    document.getElementById('loader').classList.add('hidden');
+  }, 1800);
+});
+
+// ============================================
+// PARALLAX
+// ============================================
+window.addEventListener('scroll', () => {
+  const scrollY = window.pageYOffset;
+  const heroContent = document.querySelector('.hero-content');
+  if (heroContent) {
+    heroContent.style.transform = `translateY(${scrollY * 0.3}px)`;
+    heroContent.style.opacity = Math.max(0, 1 - scrollY / 600);
+  }
+});
+
+// Keyboard navigation
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    document.querySelectorAll('.modal-overlay.open').forEach(m => m.classList.remove('open'));
+    if (cartOpen) toggleCart();
+  }
+});
+</script>
+</body>
+</html>
