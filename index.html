@@ -2401,7 +2401,7 @@ footer {
       <div style="margin-top:24px;">
         <div class="footer-title">联系我们</div>
         <div style="font-size:0.85rem;color:var(--text-muted);line-height:2;">
-          <div>📧 studio@showcomefu.com</div>
+          <div>📧 <a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="e89b9c9d8c8187a89b80879f8b87858d8e9dc68b8785">[email&#160;protected]</a></div>
           <div>💬 微信: ShowComeFu</div>
           <div>📞 周一至周六 10:00-20:00</div>
         </div>
@@ -2516,42 +2516,153 @@ footer {
 
 <script>
 // ============================================
-// DATA
+// CMS DATA LOADER — reads from admin backend
+// Falls back to built-in defaults if not set
 // ============================================
-const works = [
-  { id:1, name:'暗夜狐灵', type:'head', typeName:'兽头', likes:328, views:2140, featured:true, color:'#7c3aed', emoji:'🦊' },
-  { id:2, name:'星辰龙骑', type:'fullsuit', typeName:'全身兽装', likes:512, views:3780, color:'#06d6a0', emoji:'🐉' },
-  { id:3, name:'月影猫娘', type:'head', typeName:'兽头', likes:245, views:1890, color:'#f72585', emoji:'🐱' },
-  { id:4, name:'雪原熊王', type:'fullsuit', typeName:'全身兽装', likes:189, views:1230, color:'#4cc9f0', emoji:'🐻' },
-  { id:5, name:'电光豹装', type:'partial', typeName:'局部套装', likes:431, views:2670, color:'#f4a261', emoji:'🐆' },
-  { id:6, name:'森精灵耳', type:'accessory', typeName:'配饰', likes:156, views:890, color:'#06d6a0', emoji:'🍃' },
-];
+(function loadCMSData() {
+  const FALLBACK = {
+    site: { name:'兽可梦', subtitle:'Show Come Studio', logoEmoji:'🐾', pageTitle:'兽可梦 Show Come | 专业兽装定制工作室', copyright:'© 2024 兽可梦 Show Come Studio. 保留所有权利.', icp:'' },
+    hero: {
+      badge:'专业兽装定制工作室 · 2024年度最佳工作室',
+      title1:'让梦想中的', title2:'兽人形象', title3:'成为现实',
+      desc:'兽可梦（Show Come）专注于高品质兽头、兽装制作。\n每一件作品都是匠心独运的艺术品，为您打造专属的毛茸茸身份。',
+      btn1Text:'探索作品', btn1Link:'#works', btn2Text:'开始定制', btn2Link:'#custom',
+      stats:[{number:500,suffix:'+',label:'完成作品'},{number:300,suffix:'+',label:'满意客户'},{number:6,suffix:'+',label:'年制作经验'}],
+      threeDEnabled:true, colors:['#7c3aed','#f72585','#06d6a0','#4cc9f0'], particles:3000
+    },
+    theme: { bg:'#0a0a0f', bg2:'#111118', accent:'#7c3aed', accent2:'#06d6a0', accent3:'#f72585', text:'#e8e8f0', cursor:true, scrollAnim:true, parallax:true, noise:true, marquee:true },
+    nav: { items:[{label:'关于我们',link:'#about'},{label:'作品展示',link:'#works'},{label:'成品商城',link:'#shop'},{label:'私人定制',link:'#custom'},{label:'工作室动态',link:'#dynamics'}], ctaText:'立即定制', ctaLink:'#custom', showCart:true, showLogin:true },
+    about: { tag:'关于兽可梦', title:'匠心制作', titleHl:'每一件都是艺术', desc:'兽可梦工作室成立于2018年，专注于高品质兽头与兽装的创作与制作。我们将传统手工艺与现代技术相结合，为每位客户打造独一无二的毛茸茸角色形象。', services:[{icon:'🎨',title:'原创设计',desc:'专业设计师团队量身打造独特角色设计'},{icon:'🔧',title:'精湛制作',desc:'采用优质EVA泡沫、高级毛绒面料，手工精细打磨'},{icon:'📦',title:'成品现货',desc:'精选库存成品，支持快速发货'},{icon:'🌟',title:'售后保障',desc:'专属售后服务，提供使用指导、维修修复'}] },
+    works: [
+      { id:1, name:'暗夜狐灵', type:'head', typeName:'兽头', likes:328, views:2140, featured:true, color:'#7c3aed', emoji:'🦊', status:'published' },
+      { id:2, name:'星辰龙骑', type:'fullsuit', typeName:'全身兽装', likes:512, views:3780, featured:false, color:'#06d6a0', emoji:'🐉', status:'published' },
+      { id:3, name:'月影猫娘', type:'head', typeName:'兽头', likes:245, views:1890, featured:false, color:'#f72585', emoji:'🐱', status:'published' },
+      { id:4, name:'雪原熊王', type:'fullsuit', typeName:'全身兽装', likes:189, views:1230, featured:false, color:'#4cc9f0', emoji:'🐻', status:'published' },
+      { id:5, name:'电光豹装', type:'partial', typeName:'局部套装', likes:431, views:2670, featured:false, color:'#f4a261', emoji:'🐆', status:'published' },
+      { id:6, name:'森精灵耳', type:'accessory', typeName:'配饰', likes:156, views:890, featured:false, color:'#06d6a0', emoji:'🍃', status:'published' },
+    ],
+    categories: [
+      { id:1, name:'兽头', key:'head', emoji:'🦊', scope:'both' },
+      { id:2, name:'全身兽装', key:'fullsuit', emoji:'🐻', scope:'both' },
+      { id:3, name:'局部套装', key:'partial', emoji:'🐾', scope:'works' },
+      { id:4, name:'兽耳', key:'ear', emoji:'🐰', scope:'products' },
+      { id:5, name:'兽手/脚', key:'paw', emoji:'🐾', scope:'products' },
+      { id:6, name:'兽尾', key:'tail', emoji:'🦎', scope:'products' },
+      { id:7, name:'配饰', key:'accessory', emoji:'✨', scope:'both' },
+    ],
+    products: [
+      { id:1, name:'火焰狐狸兽头', category:'head', price:2800, oldPrice:3200, badge:'hot', emoji:'🦊', color:'#f4a261', status:'active' },
+      { id:2, name:'蓝冰狼全身装', category:'fullsuit', price:8800, oldPrice:null, badge:'new', emoji:'🐺', color:'#4cc9f0', status:'active' },
+      { id:3, name:'粉樱猫耳套装', category:'ear', price:380, oldPrice:null, badge:'sale', emoji:'🐱', color:'#f72585', status:'active' },
+      { id:4, name:'草木鹿兽爪', category:'paw', price:680, oldPrice:null, badge:null, emoji:'🦌', color:'#06d6a0', status:'active' },
+      { id:5, name:'暗影豹头', category:'head', price:3200, oldPrice:null, badge:'new', emoji:'🐆', color:'#7c3aed', status:'active' },
+      { id:6, name:'毛茸虎爪', category:'paw', price:520, oldPrice:null, badge:null, emoji:'🐯', color:'#f4a261', status:'active' },
+      { id:7, name:'精灵兔耳', category:'ear', price:280, oldPrice:null, badge:'sale', emoji:'🐰', color:'#a855f7', status:'active' },
+      { id:8, name:'龙纹尾巴', category:'tail', price:880, oldPrice:null, badge:'new', emoji:'🐉', color:'#06d6a0', status:'active' },
+    ],
+    testimonials: [
+      { text:'真的超级超级满意！设计师完全get到了我的想法，兽头做工精细，毛绒手感超棒！', author:'小狐七', role:'全身兽装定制客户', stars:5, visible:true },
+      { text:'工作室的老师们超级耐心，前后改了好几版设计图，直到我完全满意才开始制作。推荐！', author:'阿龙', role:'兽头定制客户', stars:5, visible:true },
+      { text:'成品现货质量很好，和图片描述完全一致，包装也很仔细，跨省运输没有任何损坏。', author:'苹果汁', role:'成品购买客户', stars:5, visible:true },
+      { text:'已经是第三次定制了，每次都有新的惊喜。这次的电光豹是我最喜欢的一套！', author:'電閃萌主', role:'老客户·局部套装', stars:5, visible:true },
+      { text:'从联系到收到成品全程体验都很好，老师们专业且友善。值得信赖的工作室！', author:'柴犬小年', role:'初次定制客户', stars:5, visible:true },
+      { text:'兽头的眼睛做得特别有灵气，看着就像真的一样。感谢工作室圆了我多年的兽梦。', author:'Aurora', role:'发光兽头定制客户', stars:5, visible:true },
+    ],
+    dynamics: [
+      { type:'video', typeName:'视频', title:'《暗夜狐灵》制作全记录 —— 从设计稿到成品的60天', date:'2024-12-01', excerpt:'跟随镜头，见证一件精品兽头从一张简单草图，到最终成品的完整制作过程。每一步都充满惊喜...', likes:892, comments:47, featured:true },
+      { type:'photo', typeName:'图集', title:'2024年秋季作品集正式发布', date:'2024-11-20', excerpt:'本季度完成的20件定制作品精选展示，涵盖兽头、全身装、局部套装等多种类型...', likes:634, comments:38, featured:false },
+      { type:'article', typeName:'文章', title:'如何选择适合自己的兽头类型？完整指南', date:'2024-11-10', excerpt:'新手入门必看！我们整理了关于兽头选择的全方位指南，帮助你做出最适合的选择...', likes:421, comments:29, featured:false },
+    ],
+    contact: { email:'studio@showcomefu.com', wechat:'ShowComeFu', hours:'周一至周六 10:00-20:00', steps:[{num:'01',title:'提交需求',desc:'填写定制表单，上传参考图片'},{num:'02',title:'设计确认',desc:'设计师绘制效果图，确认设计细节'},{num:'03',title:'付款制作',desc:'支付定金，制作周期一般6-12周'},{num:'04',title:'验收交付',desc:'验收无误后支付尾款，安全打包发货'}] },
+    social: [
+      { id:1, name:'微信', icon:'💬', url:'#', handle:'ShowComeFu', showFooter:true, showContact:true },
+      { id:2, name:'抖音', icon:'🎵', url:'#', handle:'@兽可梦', showFooter:true, showContact:true },
+      { id:3, name:'小红书', icon:'📕', url:'#', handle:'', showFooter:true, showContact:true },
+      { id:4, name:'微博', icon:'🌐', url:'#', handle:'', showFooter:true, showContact:false },
+      { id:5, name:'B站', icon:'📺', url:'#', handle:'', showFooter:true, showContact:false },
+    ],
+    seo: { title:'兽可梦 Show Come | 专业兽装定制工作室', desc:'兽可梦（Show Come）专业兽头兽装定制工作室，提供高品质定制与成品售卖服务', keywords:'兽头定制,兽装,fursuit,兽可梦' }
+  };
 
-const products = [
-  { id:1, name:'火焰狐狸兽头', category:'head', price:2800, oldPrice:3200, badge:'hot', emoji:'🦊', color:'#f4a261' },
-  { id:2, name:'蓝冰狼全身装', category:'fullsuit', price:8800, badge:'new', emoji:'🐺', color:'#4cc9f0' },
-  { id:3, name:'粉樱猫耳套装', category:'ear', price:380, badge:'sale', emoji:'🐱', color:'#f72585' },
-  { id:4, name:'草木鹿兽爪', category:'paw', price:680, badge:null, emoji:'🦌', color:'#06d6a0' },
-  { id:5, name:'暗影豹头', category:'head', price:3200, badge:'new', emoji:'🐆', color:'#7c3aed' },
-  { id:6, name:'毛茸虎爪', category:'paw', price:520, badge:null, emoji:'🐯', color:'#f4a261' },
-  { id:7, name:'精灵兔耳', category:'ear', price:280, badge:'sale', emoji:'🐰', color:'#a855f7' },
-  { id:8, name:'龙纹尾巴', category:'tail', price:880, badge:'new', emoji:'🐉', color:'#06d6a0' },
-];
+  // Try to load from admin CMS
+  let cms = FALLBACK;
+  try {
+    const stored = localStorage.getItem('showcomefu_frontend');
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      // Deep merge with fallback as base
+      const merge = (a, b) => {
+        const r = { ...a };
+        for (const k in b) {
+          if (b[k] && typeof b[k] === 'object' && !Array.isArray(b[k])) r[k] = merge(a[k]||{}, b[k]);
+          else if (b[k] !== undefined && b[k] !== null && b[k] !== '') r[k] = b[k];
+        }
+        return r;
+      };
+      cms = merge(FALLBACK, parsed);
+      // Arrays override entirely if non-empty
+      ['works','products','testimonials','dynamics','categories','social'].forEach(key => {
+        if (parsed[key] && parsed[key].length > 0) cms[key] = parsed[key];
+      });
+    }
+  } catch(e) { console.warn('CMS load failed, using defaults', e); }
 
-const testimonials = [
-  { text:'真的超级超级满意！设计师完全get到了我的想法，兽头做工精细，毛绒手感超棒，穿上之后整个人都更有自信了！', author:'小狐七', role:'全身兽装定制客户', stars:5 },
-  { text:'工作室的老师们超级耐心，前后改了好几版设计图，直到我完全满意才开始制作。制作周期也在预期之内，推荐！', author:'阿龙', role:'兽头定制客户', stars:5 },
-  { text:'成品现货质量很好，和图片描述完全一致，包装也很仔细，跨省运输没有任何损坏。会继续支持的！', author:'苹果汁', role:'成品购买客户', stars:5 },
-  { text:'已经是第三次定制了，每次都有新的惊喜。这次的电光豹是我最喜欢的一套，上展会回头率超高！', author:'電閃萌主', role:'老客户·局部套装', stars:5 },
-  { text:'从联系到收到成品全程体验都很好，老师们专业且友善，对材料和工艺的解释很详细。值得信赖的工作室！', author:'柴犬小年', role:'初次定制客户', stars:5 },
-  { text:'兽头的眼睛做得特别有灵气，看着就像真的一样。会发光的眼睛是亮点！感谢工作室圆了我多年的兽梦。', author:'Aurora', role:'发光兽头定制客户', stars:5 },
-];
+  window.__CMS__ = cms;
 
-const dynamics = [
-  { type:'video', typeName:'视频', title:'《暗夜狐灵》制作全记录 —— 从设计稿到成品的60天', date:'2024-12-01', excerpt:'跟随镜头，见证一件精品兽头从一张简单草图，到最终成品的完整制作过程。每一步都充满惊喜...', likes:892, comments:47, featured:true },
-  { type:'photo', typeName:'图集', title:'2024年秋季作品集正式发布', date:'2024-11-20', excerpt:'本季度完成的20件定制作品精选展示，涵盖兽头、全身装、局部套装等多种类型...', likes:634, comments:38, featured:false },
-  { type:'article', typeName:'文章', title:'如何选择适合自己的兽头类型？完整指南', date:'2024-11-10', excerpt:'新手入门必看！我们整理了关于兽头选择的全方位指南，帮助你做出最适合的选择...', likes:421, comments:29, featured:false },
-];
+  // Apply theme CSS variables
+  const th = cms.theme;
+  if (th) {
+    const root = document.documentElement.style;
+    if (th.bg) root.setProperty('--primary', th.bg);
+    if (th.bg2) root.setProperty('--secondary', th.bg2);
+    if (th.accent) { root.setProperty('--accent', th.accent); root.setProperty('--border', th.accent + '33'); root.setProperty('--glow', `0 0 40px ${th.accent}66`); }
+    if (th.accent2) { root.setProperty('--accent2', th.accent2); root.setProperty('--glow2', `0 0 40px ${th.accent2}4d`); }
+    if (th.accent3) root.setProperty('--accent3', th.accent3);
+    if (th.text) root.setProperty('--text', th.text);
+    if (!th.cursor) { document.getElementById('cursor')?.remove(); document.getElementById('cursor-ring')?.remove(); document.body.style.cursor = 'auto'; }
+    if (!th.noise) { const before = document.createElement('style'); before.textContent = 'body::before{display:none}'; document.head.appendChild(before); }
+  }
+
+  // Apply site meta
+  const s = cms.site;
+  if (s) {
+    if (s.pageTitle) document.title = s.pageTitle;
+    document.querySelector('meta[name="description"]')?.setAttribute('content', cms.seo?.desc || '');
+    // Apply SEO tags
+    const se = cms.seo;
+    if (se) {
+      if (se.keywords) {
+        let m = document.querySelector('meta[name="keywords"]');
+        if (!m) { m = document.createElement('meta'); m.name = 'keywords'; document.head.appendChild(m); }
+        m.content = se.keywords;
+      }
+      if (se.ogTitle) {
+        let m = document.querySelector('meta[property="og:title"]');
+        if (!m) { m = document.createElement('meta'); m.setAttribute('property','og:title'); document.head.appendChild(m); }
+        m.content = se.ogTitle;
+      }
+      if (se.ogImage) {
+        let m = document.querySelector('meta[property="og:image"]');
+        if (!m) { m = document.createElement('meta'); m.setAttribute('property','og:image'); document.head.appendChild(m); }
+        m.content = se.ogImage;
+      }
+    }
+    // Custom CSS
+    if (s.customCss) {
+      const style = document.createElement('style');
+      style.textContent = s.customCss;
+      document.head.appendChild(style);
+    }
+  }
+})();
+
+// ============================================
+// DATA — sourced from CMS or fallback
+// ============================================
+const works      = window.__CMS__.works.filter(w => w.status === 'published' || !w.status);
+const products   = window.__CMS__.products.filter(p => p.status === 'active' || !p.status);
+const testimonials = window.__CMS__.testimonials.filter(t => t.visible !== false);
+const dynamics   = window.__CMS__.dynamics;
 
 // ============================================
 // CART STATE
@@ -3322,6 +3433,20 @@ function showToast(msg) {
 // FORM SUBMIT
 // ============================================
 function submitCustomOrder() {
+  // Collect form values
+  const nickname = document.querySelector('#custom input[placeholder*="昵称"]')?.value || '';
+  const contact  = document.querySelector('#custom input[placeholder*="微信"]')?.value || '';
+  const typeEl   = document.querySelector('#custom select');
+  const type     = typeEl ? typeEl.options[typeEl.selectedIndex]?.text : '';
+  const budgetEl = document.querySelectorAll('#custom select')[1];
+  const budget   = budgetEl ? budgetEl.options[budgetEl.selectedIndex]?.text : '';
+  const noteEl   = document.querySelector('#custom textarea');
+  const note     = noteEl ? noteEl.value : '';
+  if (!contact) { showToast('请填写联系方式 📱'); return; }
+  const order = { id: 'O' + Date.now(), time: new Date().toISOString(), nickname, contact, type, budget, note, status: 'new' };
+  const orders = JSON.parse(localStorage.getItem('showcomefu_orders') || '[]');
+  orders.unshift(order);
+  localStorage.setItem('showcomefu_orders', JSON.stringify(orders));
   document.getElementById('successModal').classList.add('open');
 }
 
@@ -3432,12 +3557,4 @@ window.addEventListener('scroll', () => {
 });
 
 // Keyboard navigation
-document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') {
-    document.querySelectorAll('.modal-overlay.open').forEach(m => m.classList.remove('open'));
-    if (cartOpen) toggleCart();
-  }
-});
-</script>
-</body>
-</html>
+d

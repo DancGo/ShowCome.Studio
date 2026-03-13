@@ -1,0 +1,3367 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ShowCome CMS · 管理后台</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Noto+Sans+SC:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ─── RESET & VARIABLES ─── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0b0b10;--bg2:#111118;--bg3:#16161f;--bg4:#1c1c28;
+  --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.12);
+  --text:#e4e4f0;--text2:#9494aa;--text3:#5a5a72;
+  --accent:#7c3aed;--accent-h:#6d28d9;--accent-s:rgba(124,58,237,0.15);
+  --green:#10b981;--green-s:rgba(16,185,129,0.12);
+  --red:#ef4444;--red-s:rgba(239,68,68,0.12);
+  --amber:#f59e0b;--amber-s:rgba(245,158,11,0.12);
+  --blue:#3b82f6;--blue-s:rgba(59,130,246,0.12);
+  --pink:#ec4899;
+  --radius:8px;--radius-lg:14px;--radius-xl:20px;
+  --sidebar:240px;--header:60px;
+  --font-ui:'Noto Sans SC',sans-serif;
+  --font-mono:'JetBrains Mono',monospace;
+  --font-brand:'Orbitron',monospace;
+  --shadow:0 4px 24px rgba(0,0,0,0.4);
+  --transition:all 0.2s cubic-bezier(0.4,0,0.2,1);
+}
+html{font-size:14px;scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:var(--font-ui);min-height:100vh;overflow-x:hidden;line-height:1.5}
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.1);border-radius:2px}
+::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,0.2)}
+a{color:inherit;text-decoration:none}
+button,input,select,textarea{font-family:var(--font-ui);font-size:13px}
+img{max-width:100%;display:block}
+
+/* ─── LOGIN SCREEN ─── */
+#loginScreen{
+  position:fixed;inset:0;background:var(--bg);
+  display:flex;align-items:center;justify-content:center;
+  z-index:9999;
+}
+.login-card{
+  width:400px;background:var(--bg3);
+  border:1px solid var(--border2);border-radius:var(--radius-xl);
+  padding:48px 40px;
+}
+.login-brand{
+  text-align:center;margin-bottom:40px;
+}
+.login-brand .logo-mark{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:56px;height:56px;background:var(--accent-s);
+  border:1px solid var(--accent);border-radius:16px;
+  font-size:24px;margin-bottom:16px;
+}
+.login-brand h1{
+  font-family:var(--font-brand);font-size:1.4rem;font-weight:700;
+  background:linear-gradient(135deg,#fff,var(--accent));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+}
+.login-brand p{color:var(--text2);font-size:0.8rem;letter-spacing:0.2em;margin-top:4px;text-transform:uppercase}
+.form-field{margin-bottom:16px}
+.form-field label{display:block;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:var(--text2);margin-bottom:8px}
+.form-field input,.form-field select,.form-field textarea{
+  width:100%;padding:10px 14px;
+  background:var(--bg4);border:1px solid var(--border2);
+  border-radius:var(--radius);color:var(--text);
+  transition:var(--transition);outline:none;
+}
+.form-field input:focus,.form-field select:focus,.form-field textarea:focus{border-color:var(--accent);background:rgba(124,58,237,0.05);box-shadow:0 0 0 3px rgba(124,58,237,0.1)}
+.form-field input::placeholder,.form-field textarea::placeholder{color:var(--text3)}
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  padding:9px 18px;border-radius:var(--radius);
+  font-size:13px;font-weight:500;cursor:pointer;
+  border:none;transition:var(--transition);
+  white-space:nowrap;
+}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:var(--accent-h);transform:translateY(-1px);box-shadow:0 4px 16px rgba(124,58,237,0.4)}
+.btn-secondary{background:var(--bg4);color:var(--text);border:1px solid var(--border2)}
+.btn-secondary:hover{border-color:var(--border);background:var(--bg3)}
+.btn-danger{background:var(--red-s);color:var(--red);border:1px solid rgba(239,68,68,0.2)}
+.btn-danger:hover{background:var(--red);color:#fff}
+.btn-success{background:var(--green-s);color:var(--green);border:1px solid rgba(16,185,129,0.2)}
+.btn-success:hover{background:var(--green);color:#000}
+.btn-sm{padding:6px 12px;font-size:12px}
+.btn-icon{padding:7px;width:32px;height:32px}
+.btn-block{width:100%;margin-top:8px}
+.login-error{color:var(--red);font-size:12px;text-align:center;margin-top:12px;display:none}
+
+/* ─── APP LAYOUT ─── */
+#app{display:none;min-height:100vh}
+#app.visible{display:grid;grid-template-columns:var(--sidebar) 1fr;grid-template-rows:var(--header) 1fr;grid-template-areas:'sidebar header''sidebar main'}
+
+/* ─── SIDEBAR ─── */
+#sidebar{
+  grid-area:sidebar;
+  background:var(--bg2);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;
+  position:sticky;top:0;height:100vh;overflow-y:auto;
+}
+.sidebar-brand{
+  padding:0 20px;height:var(--header);
+  display:flex;align-items:center;gap:12px;
+  border-bottom:1px solid var(--border);flex-shrink:0;
+}
+.sidebar-brand .logo-icon{
+  width:32px;height:32px;background:var(--accent-s);
+  border:1px solid rgba(124,58,237,0.4);border-radius:10px;
+  display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;
+}
+.sidebar-brand .brand-text{
+  font-family:var(--font-brand);font-size:0.8rem;font-weight:700;
+  background:linear-gradient(135deg,#fff,var(--accent));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+}
+.sidebar-brand .brand-sub{
+  font-size:9px;color:var(--text3);letter-spacing:0.2em;display:block;-webkit-text-fill-color:var(--text3);
+}
+.sidebar-nav{flex:1;padding:12px 8px;overflow-y:auto}
+.nav-section{margin-bottom:24px}
+.nav-section-label{
+  font-size:10px;letter-spacing:0.2em;text-transform:uppercase;
+  color:var(--text3);padding:0 12px;margin-bottom:4px;
+}
+.nav-item{
+  display:flex;align-items:center;gap:10px;
+  padding:8px 12px;border-radius:var(--radius);
+  cursor:pointer;color:var(--text2);
+  transition:var(--transition);margin-bottom:2px;
+  font-size:13px;user-select:none;
+  border:1px solid transparent;
+}
+.nav-item:hover{background:var(--bg3);color:var(--text)}
+.nav-item.active{background:var(--accent-s);color:var(--accent);border-color:rgba(124,58,237,0.2)}
+.nav-item .nav-icon{width:16px;text-align:center;font-size:14px;flex-shrink:0}
+.nav-item .nav-badge{
+  margin-left:auto;background:var(--accent);color:#fff;
+  font-size:10px;padding:2px 6px;border-radius:10px;min-width:18px;text-align:center;
+}
+.sidebar-footer{
+  padding:12px 8px;border-top:1px solid var(--border);
+}
+.user-info{
+  display:flex;align-items:center;gap:10px;
+  padding:8px 12px;border-radius:var(--radius);
+}
+.user-avatar{
+  width:32px;height:32px;border-radius:50%;
+  background:linear-gradient(135deg,var(--accent),var(--pink));
+  display:flex;align-items:center;justify-content:center;
+  font-size:13px;font-weight:600;flex-shrink:0;color:#fff;
+}
+.user-name{font-size:12px;font-weight:500}
+.user-role{font-size:10px;color:var(--text2)}
+.btn-logout{
+  display:flex;align-items:center;gap:6px;width:100%;
+  padding:7px 12px;background:transparent;border:none;
+  color:var(--text3);cursor:pointer;border-radius:var(--radius);
+  font-size:12px;margin-top:4px;transition:var(--transition);
+}
+.btn-logout:hover{background:var(--red-s);color:var(--red)}
+
+/* ─── HEADER ─── */
+#header{
+  grid-area:header;
+  background:var(--bg2);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 28px;position:sticky;top:0;z-index:100;
+}
+.header-title{font-size:16px;font-weight:500}
+.header-path{font-size:12px;color:var(--text2);margin-top:2px}
+.header-actions{display:flex;align-items:center;gap:10px}
+.header-live-btn{
+  display:flex;align-items:center;gap:6px;
+  padding:7px 14px;background:var(--green-s);
+  border:1px solid rgba(16,185,129,0.3);border-radius:var(--radius);
+  color:var(--green);font-size:12px;cursor:pointer;transition:var(--transition);
+}
+.header-live-btn:hover{background:var(--green);color:#000}
+.live-dot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+.save-indicator{
+  font-size:11px;color:var(--text3);display:flex;align-items:center;gap:6px;
+  opacity:0;transition:opacity 0.3s;
+}
+.save-indicator.show{opacity:1}
+.save-dot{width:6px;height:6px;border-radius:50%;background:var(--amber)}
+
+/* ─── MAIN CONTENT ─── */
+#main{
+  grid-area:main;overflow-y:auto;
+  background:var(--bg);
+}
+.page{display:none;padding:28px;min-height:calc(100vh - var(--header))}
+.page.active{display:block}
+
+/* ─── PAGE ELEMENTS ─── */
+.page-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:28px}
+.page-title{font-size:20px;font-weight:500}
+.page-desc{font-size:13px;color:var(--text2);margin-top:4px}
+.page-actions{display:flex;gap:10px;align-items:center}
+
+/* ─── STATS ROW ─── */
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:28px}
+.stat-card{
+  background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-lg);
+  padding:20px;
+}
+.stat-card .stat-label{font-size:11px;color:var(--text2);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:10px}
+.stat-card .stat-value{font-family:var(--font-brand);font-size:1.8rem;font-weight:700}
+.stat-card .stat-sub{font-size:11px;color:var(--text2);margin-top:6px}
+.stat-card.accent .stat-value{color:var(--accent)}
+.stat-card.green .stat-value{color:var(--green)}
+.stat-card.amber .stat-value{color:var(--amber)}
+.stat-card.pink .stat-value{color:var(--pink)}
+
+/* ─── CARD ─── */
+.card{
+  background:var(--bg3);border:1px solid var(--border);
+  border-radius:var(--radius-lg);overflow:hidden;margin-bottom:20px;
+}
+.card-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:16px 20px;border-bottom:1px solid var(--border);
+}
+.card-title{font-size:13px;font-weight:500}
+.card-body{padding:20px}
+.card-footer{padding:14px 20px;border-top:1px solid var(--border);background:var(--bg4)}
+
+/* ─── TABLE ─── */
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+thead th{
+  padding:10px 16px;text-align:left;
+  font-size:11px;letter-spacing:0.08em;text-transform:uppercase;
+  color:var(--text2);background:var(--bg4);
+  border-bottom:1px solid var(--border);white-space:nowrap;
+}
+tbody tr{border-bottom:1px solid var(--border);transition:var(--transition)}
+tbody tr:hover{background:rgba(255,255,255,0.02)}
+tbody tr:last-child{border-bottom:none}
+td{padding:12px 16px;vertical-align:middle}
+.td-actions{display:flex;gap:6px;align-items:center}
+
+/* ─── BADGES ─── */
+.badge{
+  display:inline-flex;align-items:center;gap:4px;
+  padding:3px 9px;border-radius:6px;font-size:11px;font-weight:500;
+  letter-spacing:0.05em;
+}
+.badge-green{background:var(--green-s);color:var(--green);border:1px solid rgba(16,185,129,0.2)}
+.badge-red{background:var(--red-s);color:var(--red);border:1px solid rgba(239,68,68,0.2)}
+.badge-amber{background:var(--amber-s);color:var(--amber);border:1px solid rgba(245,158,11,0.2)}
+.badge-blue{background:var(--blue-s);color:var(--blue);border:1px solid rgba(59,130,246,0.2)}
+.badge-accent{background:var(--accent-s);color:var(--accent);border:1px solid rgba(124,58,237,0.2)}
+.badge-gray{background:rgba(255,255,255,0.06);color:var(--text2);border:1px solid var(--border)}
+
+/* ─── FORM ELEMENTS ─── */
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+.form-row.cols3{grid-template-columns:1fr 1fr 1fr}
+.form-row.cols4{grid-template-columns:1fr 1fr 1fr 1fr}
+.form-row.full{grid-template-columns:1fr}
+.form-field select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239494aa' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center}
+.form-field textarea{resize:vertical;min-height:80px;line-height:1.6}
+.form-field select option{background:var(--bg3)}
+.field-hint{font-size:11px;color:var(--text3);margin-top:6px}
+.form-section{background:var(--bg4);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px;margin-bottom:20px}
+.form-section-title{font-size:12px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:var(--text2);margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.form-section-title::before{content:'';display:block;width:3px;height:14px;background:var(--accent);border-radius:2px}
+
+/* ─── TOGGLE SWITCH ─── */
+.toggle-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)}
+.toggle-row:last-child{border-bottom:none;padding-bottom:0}
+.toggle-row:first-child{padding-top:0}
+.toggle-label{font-size:13px}
+.toggle-desc{font-size:11px;color:var(--text2);margin-top:2px}
+.toggle{position:relative;width:40px;height:22px;flex-shrink:0}
+.toggle input{opacity:0;width:0;height:0}
+.toggle-slider{
+  position:absolute;inset:0;background:var(--bg4);border:1px solid var(--border2);
+  border-radius:11px;cursor:pointer;transition:var(--transition);
+}
+.toggle-slider::before{
+  content:'';position:absolute;width:16px;height:16px;border-radius:50%;
+  background:var(--text3);top:2px;left:2px;transition:var(--transition);
+}
+.toggle input:checked + .toggle-slider{background:var(--accent);border-color:var(--accent)}
+.toggle input:checked + .toggle-slider::before{transform:translateX(18px);background:#fff}
+
+/* ─── COLOR SWATCH ─── */
+.color-field{display:flex;gap:8px;align-items:center}
+.color-preview{width:32px;height:32px;border-radius:var(--radius);border:1px solid var(--border2);cursor:pointer;flex-shrink:0}
+.color-field input[type=text]{flex:1}
+.color-field input[type=color]{width:0;height:0;opacity:0;position:absolute}
+
+/* ─── MODAL ─── */
+.modal-backdrop{
+  position:fixed;inset:0;background:rgba(0,0,0,0.7);
+  backdrop-filter:blur(4px);z-index:1000;
+  display:none;align-items:center;justify-content:center;
+}
+.modal-backdrop.open{display:flex}
+.modal{
+  background:var(--bg3);border:1px solid var(--border2);
+  border-radius:var(--radius-xl);width:700px;max-width:95vw;
+  max-height:90vh;display:flex;flex-direction:column;
+  box-shadow:0 24px 80px rgba(0,0,0,0.6);
+}
+.modal-sm .modal{width:480px}
+.modal-lg .modal{width:900px}
+.modal-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:20px 24px;border-bottom:1px solid var(--border);flex-shrink:0;
+}
+.modal-title{font-size:15px;font-weight:500}
+.modal-close{
+  width:28px;height:28px;border-radius:50%;background:var(--bg4);
+  border:1px solid var(--border2);color:var(--text2);
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;transition:var(--transition);font-size:14px;
+}
+.modal-close:hover{background:var(--red-s);color:var(--red);border-color:rgba(239,68,68,0.3)}
+.modal-body{padding:24px;overflow-y:auto;flex:1}
+.modal-footer{
+  display:flex;justify-content:flex-end;gap:10px;
+  padding:16px 24px;border-top:1px solid var(--border);flex-shrink:0;
+}
+
+/* ─── TOAST ─── */
+#toastContainer{position:fixed;bottom:24px;right:24px;z-index:9999;display:flex;flex-direction:column;gap:8px}
+.toast{
+  display:flex;align-items:center;gap:10px;
+  padding:12px 18px;border-radius:var(--radius-lg);
+  border:1px solid;font-size:13px;
+  box-shadow:var(--shadow);min-width:240px;
+  animation:toastIn 0.3s ease;
+}
+.toast.success{background:rgba(16,185,129,0.1);border-color:rgba(16,185,129,0.3);color:var(--green)}
+.toast.error{background:rgba(239,68,68,0.1);border-color:rgba(239,68,68,0.3);color:var(--red)}
+.toast.info{background:rgba(124,58,237,0.1);border-color:rgba(124,58,237,0.3);color:var(--accent)}
+@keyframes toastIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
+.toast-icon{font-size:16px;flex-shrink:0}
+
+/* ─── CONFIRM DIALOG ─── */
+.confirm-dialog .modal{width:400px}
+
+/* ─── DRAG SORT HANDLE ─── */
+.drag-handle{cursor:grab;color:var(--text3);font-size:14px;padding:4px}
+.drag-handle:active{cursor:grabbing}
+tr.dragging{opacity:0.4;background:var(--accent-s)}
+
+/* ─── IMAGE UPLOAD ─── */
+.upload-zone{
+  border:2px dashed var(--border2);border-radius:var(--radius-lg);
+  padding:32px;text-align:center;cursor:pointer;
+  transition:var(--transition);background:var(--bg4);
+}
+.upload-zone:hover,.upload-zone.dragover{border-color:var(--accent);background:var(--accent-s)}
+.upload-zone .upload-icon{font-size:28px;margin-bottom:12px;opacity:0.6}
+.upload-zone p{font-size:12px;color:var(--text2)}
+.upload-zone .upload-hint{font-size:11px;color:var(--text3);margin-top:4px}
+.image-preview-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:8px;margin-top:12px}
+.image-thumb{
+  aspect-ratio:1;border-radius:var(--radius);overflow:hidden;
+  position:relative;border:1px solid var(--border);
+  background:var(--bg4);display:flex;align-items:center;justify-content:center;
+  font-size:24px;
+}
+.image-thumb img{width:100%;height:100%;object-fit:cover}
+.image-thumb-remove{
+  position:absolute;top:4px;right:4px;
+  width:18px;height:18px;border-radius:50%;
+  background:rgba(0,0,0,0.6);color:#fff;
+  display:flex;align-items:center;justify-content:center;
+  font-size:10px;cursor:pointer;opacity:0;transition:var(--transition);
+}
+.image-thumb:hover .image-thumb-remove{opacity:1}
+
+/* ─── TABS ─── */
+.tab-bar{display:flex;gap:2px;border-bottom:1px solid var(--border);margin-bottom:24px}
+.tab-btn{
+  padding:10px 18px;font-size:13px;cursor:pointer;
+  border:none;background:transparent;color:var(--text2);
+  border-bottom:2px solid transparent;margin-bottom:-1px;
+  transition:var(--transition);
+}
+.tab-btn:hover{color:var(--text)}
+.tab-btn.active{color:var(--accent);border-bottom-color:var(--accent)}
+.tab-pane{display:none}
+.tab-pane.active{display:block}
+
+/* ─── MEDIA GRID ─── */
+.media-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px}
+.media-item{
+  background:var(--bg4);border:1px solid var(--border);
+  border-radius:var(--radius-lg);overflow:hidden;cursor:pointer;
+  transition:var(--transition);
+}
+.media-item:hover{border-color:var(--accent);transform:translateY(-2px)}
+.media-item.selected{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent)}
+.media-thumb{
+  aspect-ratio:1;background:var(--bg3);
+  display:flex;align-items:center;justify-content:center;font-size:28px;
+  overflow:hidden;
+}
+.media-thumb img{width:100%;height:100%;object-fit:cover}
+.media-info{padding:8px 10px}
+.media-name{font-size:11px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.media-meta{font-size:10px;color:var(--text3);margin-top:2px}
+
+/* ─── INLINE EDIT ─── */
+.inline-edit{
+  border:none;background:transparent;color:var(--text);
+  font-size:inherit;font-family:inherit;width:100%;
+  border-bottom:1px dashed transparent;transition:var(--transition);
+}
+.inline-edit:hover{border-bottom-color:var(--border2)}
+.inline-edit:focus{border-bottom-color:var(--accent);outline:none}
+
+/* ─── RICHTEXT placeholder ─── */
+.richtext{
+  min-height:120px;background:var(--bg4);border:1px solid var(--border2);
+  border-radius:var(--radius);padding:12px;color:var(--text);
+  font-size:13px;line-height:1.6;outline:none;
+}
+.richtext:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(124,58,237,0.1)}
+.richtext-toolbar{
+  display:flex;gap:4px;padding:8px;background:var(--bg4);
+  border:1px solid var(--border2);border-bottom:none;
+  border-radius:var(--radius) var(--radius) 0 0;flex-wrap:wrap;
+}
+.richtext-toolbar button{
+  padding:5px 8px;background:transparent;border:1px solid transparent;
+  border-radius:5px;color:var(--text2);cursor:pointer;font-size:12px;
+  transition:var(--transition);
+}
+.richtext-toolbar button:hover{background:var(--bg3);color:var(--text);border-color:var(--border)}
+
+/* ─── 3D ASSET PANEL ─── */
+.asset-3d-card{
+  background:var(--bg4);border:1px solid var(--border);
+  border-radius:var(--radius-lg);overflow:hidden;
+}
+.asset-3d-preview{
+  height:160px;background:linear-gradient(135deg,#0d0d1a,#1a0a2e);
+  display:flex;align-items:center;justify-content:center;
+  font-size:56px;position:relative;
+}
+.asset-3d-preview .asset-type-badge{
+  position:absolute;top:8px;left:8px;
+  background:rgba(124,58,237,0.8);color:#fff;
+  font-size:9px;letter-spacing:0.15em;padding:3px 8px;border-radius:4px;text-transform:uppercase;
+}
+.asset-3d-info{padding:12px}
+.asset-3d-name{font-size:13px;font-weight:500;margin-bottom:4px}
+.asset-3d-meta{font-size:11px;color:var(--text2)}
+
+/* ─── SEO SCORE ─── */
+.seo-score{
+  display:flex;align-items:center;gap:16px;
+  background:var(--bg4);border-radius:var(--radius-lg);padding:16px;margin-bottom:16px;
+}
+.seo-ring{
+  width:56px;height:56px;border-radius:50%;flex-shrink:0;
+  background:conic-gradient(var(--green) var(--pct,0%), var(--bg3) 0%);
+  display:flex;align-items:center;justify-content:center;
+  font-size:13px;font-weight:600;font-family:var(--font-brand);
+  position:relative;
+}
+.seo-ring::before{content:'';position:absolute;width:40px;height:40px;border-radius:50%;background:var(--bg4)}
+.seo-ring span{position:relative;z-index:1}
+
+/* ─── ACTIVITY LOG ─── */
+.activity-item{
+  display:flex;gap:12px;padding:12px 0;
+  border-bottom:1px solid var(--border);
+}
+.activity-item:last-child{border-bottom:none}
+.activity-dot{
+  width:8px;height:8px;border-radius:50%;flex-shrink:0;
+  margin-top:6px;
+}
+.activity-dot.green{background:var(--green)}
+.activity-dot.accent{background:var(--accent)}
+.activity-dot.amber{background:var(--amber)}
+.activity-dot.red{background:var(--red)}
+.activity-text{font-size:13px;line-height:1.5}
+.activity-time{font-size:11px;color:var(--text3);margin-top:2px}
+
+/* ─── SEARCH BAR ─── */
+.search-bar{
+  display:flex;align-items:center;gap:8px;
+  background:var(--bg4);border:1px solid var(--border);
+  border-radius:var(--radius);padding:7px 12px;flex:1;max-width:280px;
+}
+.search-bar input{background:transparent;border:none;outline:none;color:var(--text);font-size:13px;flex:1}
+.search-bar input::placeholder{color:var(--text3)}
+.search-icon{color:var(--text3);font-size:14px}
+
+/* ─── THEME PREVIEW ─── */
+.theme-swatch{
+  width:32px;height:32px;border-radius:50%;cursor:pointer;
+  border:2px solid transparent;transition:var(--transition);flex-shrink:0;
+}
+.theme-swatch.selected{border-color:#fff;transform:scale(1.1)}
+
+/* ─── PAGINATION ─── */
+.pagination{display:flex;align-items:center;gap:4px}
+.page-btn{
+  width:30px;height:30px;border-radius:var(--radius);
+  background:var(--bg4);border:1px solid var(--border);
+  color:var(--text2);font-size:12px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  transition:var(--transition);
+}
+.page-btn:hover,.page-btn.active{background:var(--accent-s);border-color:rgba(124,58,237,0.3);color:var(--accent)}
+
+/* ─── EMPTY STATE ─── */
+.empty-state{
+  text-align:center;padding:60px 20px;
+  color:var(--text2);
+}
+.empty-icon{font-size:48px;margin-bottom:16px;opacity:0.4}
+.empty-title{font-size:15px;font-weight:500;margin-bottom:8px}
+.empty-desc{font-size:13px;color:var(--text3)}
+
+/* ─── PLATFORM CHIP ─── */
+.platform-chip{
+  display:flex;align-items:center;gap:8px;
+  padding:10px 14px;background:var(--bg4);
+  border:1px solid var(--border2);border-radius:var(--radius);
+  cursor:pointer;transition:var(--transition);
+}
+.platform-chip:hover{border-color:var(--accent)}
+.platform-chip.active{background:var(--accent-s);border-color:rgba(124,58,237,0.4)}
+.platform-icon{width:28px;height:28px;border-radius:8px;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:14px}
+.platform-name{font-size:12px;font-weight:500}
+.platform-handle{font-size:11px;color:var(--text3)}
+
+/* ─── MISC ─── */
+.divider{height:1px;background:var(--border);margin:20px 0}
+.text-muted{color:var(--text2)}
+.text-danger{color:var(--red)}
+.text-success{color:var(--green)}
+.text-accent{color:var(--accent)}
+.mono{font-family:var(--font-mono);font-size:12px}
+.truncate{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.flex{display:flex}.items-center{align-items:center}.gap-2{gap:8px}.gap-3{gap:12px}
+.mb-0{margin-bottom:0}.mt-1{margin-top:4px}
+.flex-1{flex:1}.w-full{width:100%}
+.code-block{
+  background:var(--bg4);border:1px solid var(--border);
+  border-radius:var(--radius);padding:12px 16px;
+  font-family:var(--font-mono);font-size:12px;
+  color:var(--accent);overflow-x:auto;
+}
+
+/* ─── RESPONSIVE ─── */
+@media(max-width:1024px){
+  :root{--sidebar:200px}
+  .stats-grid{grid-template-columns:repeat(2,1fr)}
+  .form-row.cols4{grid-template-columns:1fr 1fr}
+}
+@media(max-width:768px){
+  #app.visible{grid-template-columns:1fr;grid-template-areas:'header''main'}
+  #sidebar{display:none}
+  .stats-grid{grid-template-columns:1fr 1fr}
+  .form-row{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════
+     LOGIN SCREEN
+═══════════════════════════════════════════ -->
+<div id="loginScreen">
+  <div class="login-card">
+    <div class="login-brand">
+      <div class="logo-mark">🐾</div>
+      <h1>兽可梦 CMS</h1>
+      <p>Show Come Admin Panel</p>
+    </div>
+    <div class="form-field">
+      <label>管理员账号</label>
+      <input type="text" id="loginUser" placeholder="admin" value="admin" autocomplete="off">
+    </div>
+    <div class="form-field">
+      <label>密码</label>
+      <input type="password" id="loginPass" placeholder="••••••••" value="showcome2024" autocomplete="off">
+    </div>
+    <button class="btn btn-primary btn-block" onclick="doLogin()">登录后台</button>
+    <div class="login-error" id="loginError">账号或密码错误，请重试</div>
+    <p style="text-align:center;font-size:11px;color:var(--text3);margin-top:20px">
+      默认账号 <span class="mono" style="color:var(--accent)">admin</span> / 密码 <span class="mono" style="color:var(--accent)">showcome2024</span>
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     MAIN APP
+═══════════════════════════════════════════ -->
+<div id="app">
+
+  <!-- SIDEBAR -->
+  <aside id="sidebar">
+    <div class="sidebar-brand">
+      <div class="logo-icon">🐾</div>
+      <div>
+        <div class="brand-text">ShowCome</div>
+        <span class="brand-sub">CMS Admin</span>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section">
+        <div class="nav-section-label">概览</div>
+        <div class="nav-item active" onclick="showPage('dashboard')">
+          <span class="nav-icon">📊</span> 数据仪表盘
+        </div>
+      </div>
+      <div class="nav-section">
+        <div class="nav-section-label">站点配置</div>
+        <div class="nav-item" onclick="showPage('siteConfig')">
+          <span class="nav-icon">⚙️</span> 基础设置
+        </div>
+        <div class="nav-item" onclick="showPage('theme')">
+          <span class="nav-icon">🎨</span> 外观主题
+        </div>
+        <div class="nav-item" onclick="showPage('seo')">
+          <span class="nav-icon">🔍</span> SEO 设置
+        </div>
+      </div>
+      <div class="nav-section">
+        <div class="nav-section-label">内容管理</div>
+        <div class="nav-item" onclick="showPage('hero')">
+          <span class="nav-icon">🖼️</span> 首页 Hero
+        </div>
+        <div class="nav-item" onclick="showPage('about')">
+          <span class="nav-icon">📖</span> 关于我们
+        </div>
+        <div class="nav-item" onclick="showPage('works')">
+          <span class="nav-icon">🖌️</span> 作品集管理
+        </div>
+        <div class="nav-item" onclick="showPage('testimonials')">
+          <span class="nav-icon">💬</span> 客户评价
+        </div>
+        <div class="nav-item" onclick="showPage('dynamics')">
+          <span class="nav-icon">📰</span> 工作室动态
+        </div>
+        <div class="nav-item" onclick="showPage('customPage')">
+          <span class="nav-icon">✏️</span> 定制流程
+        </div>
+      </div>
+      <div class="nav-section">
+        <div class="nav-section-label">商城管理</div>
+        <div class="nav-item" onclick="showPage('products')">
+          <span class="nav-icon">🛒</span> 商品管理
+        </div>
+        <div class="nav-item" onclick="showPage('categories')">
+          <span class="nav-icon">🏷️</span> 分类字段
+        </div>
+        <div class="nav-item" onclick="showPage('orders')">
+          <span class="nav-icon">📦</span> 定制订单
+        </div>
+      </div>
+      <div class="nav-section">
+        <div class="nav-section-label">媒体 & 资产</div>
+        <div class="nav-item" onclick="showPage('media')">
+          <span class="nav-icon">🗂️</span> 媒体库
+        </div>
+        <div class="nav-item" onclick="showPage('assets3d')">
+          <span class="nav-icon">🧊</span> 3D 资产
+        </div>
+      </div>
+      <div class="nav-section">
+        <div class="nav-section-label">联系 & 平台</div>
+        <div class="nav-item" onclick="showPage('contact')">
+          <span class="nav-icon">📞</span> 联系我们
+        </div>
+        <div class="nav-item" onclick="showPage('social')">
+          <span class="nav-icon">🔗</span> 第三方平台
+        </div>
+      </div>
+      <div class="nav-section">
+        <div class="nav-section-label">系统</div>
+        <div class="nav-item" onclick="showPage('admins')">
+          <span class="nav-icon">👤</span> 管理员账号
+        </div>
+        <div class="nav-item" onclick="showPage('exportImport')">
+          <span class="nav-icon">💾</span> 导入导出
+        </div>
+      </div>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-info">
+        <div class="user-avatar" id="sidebarAvatar">A</div>
+        <div>
+          <div class="user-name" id="sidebarUser">admin</div>
+          <div class="user-role">超级管理员</div>
+        </div>
+      </div>
+      <button class="btn-logout" onclick="doLogout()">🚪 退出登录</button>
+    </div>
+  </aside>
+
+  <!-- HEADER -->
+  <header id="header">
+    <div>
+      <div class="header-title" id="headerTitle">数据仪表盘</div>
+      <div class="header-path" id="headerPath">ShowCome CMS / 概览</div>
+    </div>
+    <div class="header-actions">
+      <div class="save-indicator" id="saveIndicator">
+        <span class="save-dot"></span> 已保存更改
+      </div>
+      <button class="header-live-btn" onclick="openFrontend()">
+        <span class="live-dot"></span> 预览前台
+      </button>
+      <button class="btn btn-primary btn-sm" onclick="saveAll()">
+        💾 保存发布
+      </button>
+    </div>
+  </header>
+
+  <!-- MAIN -->
+  <main id="main">
+
+    <!-- ─── DASHBOARD ─── -->
+    <div class="page active" id="page-dashboard">
+      <div class="page-header">
+        <div>
+          <div class="page-title">数据仪表盘</div>
+          <div class="page-desc">当前内容概览与最近操作记录</div>
+        </div>
+        <div class="page-actions">
+          <button class="btn btn-secondary btn-sm" onclick="refreshDashboard()">🔄 刷新</button>
+        </div>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-card accent">
+          <div class="stat-label">作品总数</div>
+          <div class="stat-value" id="ds-works">6</div>
+          <div class="stat-sub">已发布 / 总计</div>
+        </div>
+        <div class="stat-card green">
+          <div class="stat-label">在售商品</div>
+          <div class="stat-value" id="ds-products">8</div>
+          <div class="stat-sub">成品现货</div>
+        </div>
+        <div class="stat-card amber">
+          <div class="stat-label">动态文章</div>
+          <div class="stat-value" id="ds-dynamics">3</div>
+          <div class="stat-sub">工作室动态</div>
+        </div>
+        <div class="stat-card pink">
+          <div class="stat-label">客户评价</div>
+          <div class="stat-value" id="ds-testimonials">6</div>
+          <div class="stat-sub">展示中</div>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">📋 最近操作记录</div>
+          </div>
+          <div class="card-body" id="activityLog" style="padding:0 20px">
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">🚀 快速操作</div>
+          </div>
+          <div class="card-body">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+              <button class="btn btn-secondary" style="flex-direction:column;height:64px;gap:4px" onclick="showPage('works');openWorkModal()">
+                <span style="font-size:18px">🖌️</span><span style="font-size:11px">新增作品</span>
+              </button>
+              <button class="btn btn-secondary" style="flex-direction:column;height:64px;gap:4px" onclick="showPage('products');openProductModal()">
+                <span style="font-size:18px">🛒</span><span style="font-size:11px">新增商品</span>
+              </button>
+              <button class="btn btn-secondary" style="flex-direction:column;height:64px;gap:4px" onclick="showPage('dynamics');openDynamicModal()">
+                <span style="font-size:18px">📰</span><span style="font-size:11px">发布动态</span>
+              </button>
+              <button class="btn btn-secondary" style="flex-direction:column;height:64px;gap:4px" onclick="showPage('testimonials');openTestimonialModal()">
+                <span style="font-size:18px">💬</span><span style="font-size:11px">添加评价</span>
+              </button>
+            </div>
+            <div class="divider"></div>
+            <div style="font-size:12px;color:var(--text2);margin-bottom:12px">前台状态</div>
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <div class="toggle-row" style="border:none;padding:0">
+                <div>
+                  <div class="toggle-label" style="font-size:12px">网站在线</div>
+                </div>
+                <label class="toggle"><input type="checkbox" id="siteOnline" checked><span class="toggle-slider"></span></label>
+              </div>
+              <div class="toggle-row" style="border:none;padding:0">
+                <div>
+                  <div class="toggle-label" style="font-size:12px">商城开放</div>
+                </div>
+                <label class="toggle"><input type="checkbox" id="shopOnline" checked><span class="toggle-slider"></span></label>
+              </div>
+              <div class="toggle-row" style="border:none;padding:0">
+                <div>
+                  <div class="toggle-label" style="font-size:12px">接受定制申请</div>
+                </div>
+                <label class="toggle"><input type="checkbox" id="customOpen" checked><span class="toggle-slider"></span></label>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── SITE CONFIG ─── -->
+    <div class="page" id="page-siteConfig">
+      <div class="page-header">
+        <div><div class="page-title">基础设置</div><div class="page-desc">站点名称、Logo、联系信息等基础配置</div></div>
+        <div class="page-actions"><button class="btn btn-primary" onclick="saveSiteConfig()">保存设置</button></div>
+      </div>
+      <div class="form-section">
+        <div class="form-section-title">站点标识</div>
+        <div class="form-row">
+          <div class="form-field">
+            <label>站点名称（中文）</label>
+            <input type="text" id="siteName" value="兽可梦">
+          </div>
+          <div class="form-field">
+            <label>站点名称（英文）</label>
+            <input type="text" id="siteNameEn" value="Show Come Studio">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-field">
+            <label>页面标题</label>
+            <input type="text" id="pageTitle" value="兽可梦 Show Come | 专业兽装定制工作室">
+          </div>
+          <div class="form-field">
+            <label>副标题 / Slogan</label>
+            <input type="text" id="slogan" value="专业兽装定制工作室 · 2024年度最佳工作室">
+          </div>
+        </div>
+        <div class="form-field">
+          <label>Logo 图标（Emoji / URL）</label>
+          <div style="display:flex;gap:10px">
+            <input type="text" id="logoEmoji" value="🐾" style="width:80px;text-align:center;font-size:20px">
+            <input type="text" id="logoUrl" placeholder="或输入图片URL（留空使用内置SVG）" style="flex:1">
+          </div>
+          <div class="field-hint">支持 Emoji 图标或外部图片链接</div>
+        </div>
+        <div class="form-field">
+          <label>Favicon URL</label>
+          <input type="text" id="faviconUrl" placeholder="https://...（留空使用默认）">
+        </div>
+      </div>
+
+      <div class="form-section">
+        <div class="form-section-title">导航栏配置</div>
+        <div class="toggle-row">
+          <div><div class="toggle-label">显示"立即定制"按钮</div></div>
+          <label class="toggle"><input type="checkbox" id="navShowCta" checked><span class="toggle-slider"></span></label>
+        </div>
+        <div class="toggle-row">
+          <div><div class="toggle-label">显示购物车图标</div></div>
+          <label class="toggle"><input type="checkbox" id="navShowCart" checked><span class="toggle-slider"></span></label>
+        </div>
+        <div class="toggle-row">
+          <div><div class="toggle-label">显示登录按钮</div></div>
+          <label class="toggle"><input type="checkbox" id="navShowLogin" checked><span class="toggle-slider"></span></label>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <div class="form-section-title">底部 Footer</div>
+        <div class="form-field">
+          <label>版权文字</label>
+          <input type="text" id="footerCopy" value="© 2024 兽可梦 Show Come Studio. 保留所有权利.">
+        </div>
+        <div class="form-field">
+          <label>ICP 备案号</label>
+          <input type="text" id="icp" placeholder="京ICP备XXXXXXXX号">
+        </div>
+        <div class="form-field">
+          <label>Newsletter 订阅文案</label>
+          <input type="text" id="newsletterText" value="订阅我们的邮件，获取最新作品、活动和优惠信息">
+        </div>
+      </div>
+
+      <div class="form-section">
+        <div class="form-section-title">高级</div>
+        <div class="form-field">
+          <label>自定义 CSS（注入 &lt;head&gt;）</label>
+          <textarea id="customCss" class="richtext" placeholder="/* 在此输入自定义 CSS */" style="font-family:var(--font-mono);font-size:12px;min-height:120px"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── THEME ─── -->
+    <div class="page" id="page-theme">
+      <div class="page-header">
+        <div><div class="page-title">外观主题</div><div class="page-desc">颜色、字体、视觉效果配置</div></div>
+        <div class="page-actions">
+          <button class="btn btn-secondary" onclick="resetTheme()">恢复默认</button>
+          <button class="btn btn-primary" onclick="saveTheme()">应用主题</button>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+        <div>
+          <div class="form-section">
+            <div class="form-section-title">主色调</div>
+            <div class="form-field">
+              <label>背景色（深）</label>
+              <div class="color-field">
+                <div class="color-preview" id="cp-bg" onclick="triggerColor('tc-bg')" style="background:#0a0a0f"></div>
+                <input type="text" id="tc-bg" value="#0a0a0f" oninput="syncColor('tc-bg','cp-bg')">
+                <input type="color" id="tc-bg-picker" value="#0a0a0f" oninput="syncColorPicker('tc-bg-picker','tc-bg','cp-bg')">
+              </div>
+            </div>
+            <div class="form-field">
+              <label>背景色（次）</label>
+              <div class="color-field">
+                <div class="color-preview" id="cp-bg2" onclick="triggerColor('tc-bg2-picker')" style="background:#111118"></div>
+                <input type="text" id="tc-bg2" value="#111118" oninput="syncColor('tc-bg2','cp-bg2')">
+                <input type="color" id="tc-bg2-picker" value="#111118" oninput="syncColorPicker('tc-bg2-picker','tc-bg2','cp-bg2')">
+              </div>
+            </div>
+            <div class="form-field">
+              <label>主强调色</label>
+              <div class="color-field">
+                <div class="color-preview" id="cp-accent" onclick="triggerColor('tc-accent-picker')" style="background:#7c3aed"></div>
+                <input type="text" id="tc-accent" value="#7c3aed" oninput="syncColor('tc-accent','cp-accent')">
+                <input type="color" id="tc-accent-picker" value="#7c3aed" oninput="syncColorPicker('tc-accent-picker','tc-accent','cp-accent')">
+              </div>
+            </div>
+            <div class="form-field">
+              <label>辅助色 1（绿）</label>
+              <div class="color-field">
+                <div class="color-preview" id="cp-accent2" onclick="triggerColor('tc-accent2-picker')" style="background:#06d6a0"></div>
+                <input type="text" id="tc-accent2" value="#06d6a0" oninput="syncColor('tc-accent2','cp-accent2')">
+                <input type="color" id="tc-accent2-picker" value="#06d6a0" oninput="syncColorPicker('tc-accent2-picker','tc-accent2','cp-accent2')">
+              </div>
+            </div>
+            <div class="form-field">
+              <label>辅助色 2（粉）</label>
+              <div class="color-field">
+                <div class="color-preview" id="cp-accent3" onclick="triggerColor('tc-accent3-picker')" style="background:#f72585"></div>
+                <input type="text" id="tc-accent3" value="#f72585" oninput="syncColor('tc-accent3','cp-accent3')">
+                <input type="color" id="tc-accent3-picker" value="#f72585" oninput="syncColorPicker('tc-accent3-picker','tc-accent3','cp-accent3')">
+              </div>
+            </div>
+            <div class="form-field">
+              <label>文字颜色</label>
+              <div class="color-field">
+                <div class="color-preview" id="cp-text" onclick="triggerColor('tc-text-picker')" style="background:#e8e8f0"></div>
+                <input type="text" id="tc-text" value="#e8e8f0" oninput="syncColor('tc-text','cp-text')">
+                <input type="color" id="tc-text-picker" value="#e8e8f0" oninput="syncColorPicker('tc-text-picker','tc-text','cp-text')">
+              </div>
+            </div>
+          </div>
+
+          <div class="form-section">
+            <div class="form-section-title">预设主题</div>
+            <div style="display:flex;gap:12px;flex-wrap:wrap">
+              <button class="btn btn-secondary btn-sm" onclick="applyPreset('purple')">💜 深紫默认</button>
+              <button class="btn btn-secondary btn-sm" onclick="applyPreset('blue')">💙 星空蓝</button>
+              <button class="btn btn-secondary btn-sm" onclick="applyPreset('green')">💚 森林绿</button>
+              <button class="btn btn-secondary btn-sm" onclick="applyPreset('red')">❤️ 炽焰红</button>
+              <button class="btn btn-secondary btn-sm" onclick="applyPreset('mono')">🤍 暗夜白</button>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="form-section">
+            <div class="form-section-title">视觉特效</div>
+            <div class="toggle-row">
+              <div><div class="toggle-label">自定义光标</div><div class="toggle-desc">鼠标跟随光标效果</div></div>
+              <label class="toggle"><input type="checkbox" id="thCursor" checked><span class="toggle-slider"></span></label>
+            </div>
+            <div class="toggle-row">
+              <div><div class="toggle-label">噪点纹理遮罩</div><div class="toggle-desc">背景噪点质感</div></div>
+              <label class="toggle"><input type="checkbox" id="thNoise" checked><span class="toggle-slider"></span></label>
+            </div>
+            <div class="toggle-row">
+              <div><div class="toggle-label">滚动视差效果</div><div class="toggle-desc">Hero 区域视差</div></div>
+              <label class="toggle"><input type="checkbox" id="thParallax" checked><span class="toggle-slider"></span></label>
+            </div>
+            <div class="toggle-row">
+              <div><div class="toggle-label">页面载入动画</div><div class="toggle-desc">首次访问加载动画</div></div>
+              <label class="toggle"><input type="checkbox" id="thLoader" checked><span class="toggle-slider"></span></label>
+            </div>
+            <div class="toggle-row">
+              <div><div class="toggle-label">滚动揭示动画</div><div class="toggle-desc">元素滚动进入动画</div></div>
+              <label class="toggle"><input type="checkbox" id="thReveal" checked><span class="toggle-slider"></span></label>
+            </div>
+            <div class="toggle-row">
+              <div><div class="toggle-label">粒子背景动画</div><div class="toggle-desc">Three.js 3D 粒子</div></div>
+              <label class="toggle"><input type="checkbox" id="th3D" checked><span class="toggle-slider"></span></label>
+            </div>
+          </div>
+
+          <div class="form-section">
+            <div class="form-section-title">字体设置</div>
+            <div class="form-field">
+              <label>品牌/标题字体</label>
+              <select id="fontBrand">
+                <option value="Orbitron">Orbitron（科技感）</option>
+                <option value="'Zen Dots'">Zen Dots</option>
+                <option value="'Share Tech Mono'">Share Tech Mono</option>
+                <option value="'Rajdhani'">Rajdhani</option>
+              </select>
+            </div>
+            <div class="form-field">
+              <label>正文字体</label>
+              <select id="fontBody">
+                <option value="'Noto Sans SC'">Noto Sans SC（推荐）</option>
+                <option value="'PingFang SC'">PingFang SC</option>
+                <option value="'Microsoft YaHei'">微软雅黑</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── SEO ─── -->
+    <div class="page" id="page-seo">
+      <div class="page-header">
+        <div><div class="page-title">SEO 设置</div><div class="page-desc">搜索引擎优化与社交媒体分享配置</div></div>
+        <div class="page-actions"><button class="btn btn-primary" onclick="saveSeo()">保存 SEO</button></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 380px;gap:20px">
+        <div>
+          <div class="form-section">
+            <div class="form-section-title">基础 Meta</div>
+            <div class="form-field">
+              <label>&lt;title&gt; 页面标题</label>
+              <input type="text" id="seoTitle" value="兽可梦 Show Come | 专业兽装定制工作室" oninput="updateSeoScore()">
+            </div>
+            <div class="form-field">
+              <label>Meta Description（建议 120-160 字符）</label>
+              <textarea id="seoDesc" style="min-height:80px" oninput="updateSeoScore()">兽可梦（Show Come）专业兽头兽装定制工作室，提供高品质定制与成品售卖服务</textarea>
+              <div class="field-hint"><span id="seoDescLen">0</span> / 160 字符</div>
+            </div>
+            <div class="form-field">
+              <label>Meta Keywords（逗号分隔）</label>
+              <input type="text" id="seoKeywords" value="兽头定制,兽装,fursuit,兽可梦,Show Come">
+            </div>
+            <div class="form-field">
+              <label>Canonical URL</label>
+              <input type="text" id="seoCanonical" placeholder="https://showcomefu.com">
+            </div>
+          </div>
+          <div class="form-section">
+            <div class="form-section-title">Open Graph（社交分享）</div>
+            <div class="form-field">
+              <label>OG Title</label>
+              <input type="text" id="ogTitle" value="兽可梦 Show Come — 专业兽装定制">
+            </div>
+            <div class="form-field">
+              <label>OG Description</label>
+              <textarea id="ogDesc" style="min-height:60px">高品质兽头、兽装定制工作室，将你的角色梦想变为现实</textarea>
+            </div>
+            <div class="form-field">
+              <label>OG Image URL（建议 1200×630）</label>
+              <input type="text" id="ogImage" placeholder="https://...">
+            </div>
+          </div>
+          <div class="form-section">
+            <div class="form-section-title">Robots & Sitemap</div>
+            <div class="form-row">
+              <div class="form-field">
+                <label>robots.txt 指令</label>
+                <select id="seoRobots">
+                  <option value="index,follow">index, follow（允许收录）</option>
+                  <option value="noindex,nofollow">noindex, nofollow（禁止收录）</option>
+                  <option value="index,nofollow">index, nofollow</option>
+                </select>
+              </div>
+              <div class="form-field">
+                <label>Google Analytics ID</label>
+                <input type="text" id="gaId" placeholder="G-XXXXXXXXXX">
+              </div>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="card" style="position:sticky;top:20px">
+            <div class="card-header"><div class="card-title">🔍 SEO 评分</div></div>
+            <div class="card-body">
+              <div class="seo-score">
+                <div class="seo-ring" id="seoRing" style="--pct:240deg">
+                  <span id="seoScoreNum">80</span>
+                </div>
+                <div>
+                  <div style="font-size:14px;font-weight:500">良好</div>
+                  <div style="font-size:12px;color:var(--text2);margin-top:2px">还有优化空间</div>
+                </div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:8px;font-size:12px" id="seoChecks">
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── HERO ─── -->
+    <div class="page" id="page-hero">
+      <div class="page-header">
+        <div><div class="page-title">首页 Hero</div><div class="page-desc">首屏大图文字、标语、统计数字配置</div></div>
+        <div class="page-actions"><button class="btn btn-primary" onclick="saveHero()">保存</button></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+        <div>
+          <div class="form-section">
+            <div class="form-section-title">标题文字</div>
+            <div class="form-field">
+              <label>标题第一行</label>
+              <input type="text" id="heroLine1" value="让梦想中的">
+            </div>
+            <div class="form-field">
+              <label>标题第二行（渐变高亮）</label>
+              <input type="text" id="heroLine2" value="兽人形象">
+            </div>
+            <div class="form-field">
+              <label>标题第三行</label>
+              <input type="text" id="heroLine3" value="成为现实">
+            </div>
+            <div class="form-field">
+              <label>副标题（支持 \n 换行）</label>
+              <textarea id="heroSubtitle" style="min-height:80px">兽可梦（Show Come）专注于高品质兽头、兽装制作。\n每一件作品都是匠心独运的艺术品，为您打造专属的毛茸茸身份。</textarea>
+            </div>
+          </div>
+          <div class="form-section">
+            <div class="form-section-title">按钮文字</div>
+            <div class="form-row">
+              <div class="form-field">
+                <label>主按钮文字</label>
+                <input type="text" id="heroBtnPrimary" value="探索作品">
+              </div>
+              <div class="form-field">
+                <label>次按钮文字</label>
+                <input type="text" id="heroBtnSecondary" value="开始定制">
+              </div>
+            </div>
+          </div>
+          <div class="form-section">
+            <div class="form-section-title">顶部徽章</div>
+            <div class="form-field">
+              <label>徽章文字</label>
+              <input type="text" id="heroBadge" value="专业兽装定制工作室 · 2024年度最佳工作室">
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="form-section">
+            <div class="form-section-title">统计数字</div>
+            <div id="heroStats">
+            </div>
+            <button class="btn btn-secondary btn-sm" onclick="addHeroStat()">+ 添加统计项</button>
+          </div>
+          <div class="form-section">
+            <div class="form-section-title">背景跑马灯</div>
+            <div class="form-field">
+              <label>关键词（逗号分隔）</label>
+              <textarea id="marqueeItems" style="min-height:60px">兽头定制,全身兽装,兽耳配件,3D模型展示,客户定制,成品现货,Show Come Studio,专业制作</textarea>
+            </div>
+          </div>
+          <div class="form-section">
+            <div class="form-section-title">3D 背景配置</div>
+            <div class="form-field">
+              <label>粒子数量</label>
+              <input type="number" id="hero3dParticles" value="3000" min="500" max="8000" step="500">
+              <div class="field-hint">粒子越多，视觉越丰富，性能消耗越大（建议 2000-4000）</div>
+            </div>
+            <div class="form-field">
+              <label>主粒子颜色</label>
+              <div class="color-field">
+                <div class="color-preview" id="cp-p1" style="background:#7c3aed"></div>
+                <input type="text" id="tc-p1" value="#7c3aed">
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── ABOUT ─── -->
+    <div class="page" id="page-about">
+      <div class="page-header">
+        <div><div class="page-title">关于我们</div><div class="page-desc">关于版块的文字内容与服务特点配置</div></div>
+        <div class="page-actions"><button class="btn btn-primary" onclick="saveAbout()">保存</button></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+        <div>
+          <div class="form-section">
+            <div class="form-section-title">版块标题</div>
+            <div class="form-field">
+              <label>标签文字</label>
+              <input type="text" id="aboutTag" value="关于兽可梦">
+            </div>
+            <div class="form-field">
+              <label>主标题第一行</label>
+              <input type="text" id="aboutTitle1" value="匠心制作">
+            </div>
+            <div class="form-field">
+              <label>主标题第二行（高亮）</label>
+              <input type="text" id="aboutTitle2" value="每一件都是艺术">
+            </div>
+            <div class="form-field">
+              <label>描述文字</label>
+              <textarea id="aboutDesc" style="min-height:100px">兽可梦工作室成立于2018年，专注于高品质兽头与兽装的创作与制作。我们将传统手工艺与现代技术相结合，为每位客户打造独一无二的毛茸茸角色形象。</textarea>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="form-section">
+            <div class="form-section-title">服务特点列表</div>
+            <div id="servicesList"></div>
+            <button class="btn btn-secondary btn-sm" onclick="addService()" style="margin-top:8px">+ 添加服务项</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── WORKS ─── -->
+    <div class="page" id="page-works">
+      <div class="page-header">
+        <div><div class="page-title">作品集管理</div><div class="page-desc">管理展示在作品页面的所有作品</div></div>
+        <div class="page-actions">
+          <div class="search-bar"><span class="search-icon">🔍</span><input type="text" placeholder="搜索作品..." id="worksSearch" oninput="renderWorksTable()"></div>
+          <button class="btn btn-primary" onclick="openWorkModal()">+ 新增作品</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">作品列表</div>
+          <div style="display:flex;gap:8px">
+            <select id="worksFilterType" onchange="renderWorksTable()" style="background:var(--bg4);border:1px solid var(--border);border-radius:var(--radius);padding:6px 12px;color:var(--text);font-size:12px">
+              <option value="">全部类型</option>
+              <option value="head">兽头</option>
+              <option value="fullsuit">全身兽装</option>
+              <option value="partial">局部套装</option>
+              <option value="accessory">配饰</option>
+            </select>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th width="40"></th>
+                <th>作品名称</th>
+                <th>类型</th>
+                <th>颜色/图标</th>
+                <th>特色展示</th>
+                <th>状态</th>
+                <th>点赞 / 浏览</th>
+                <th width="120">操作</th>
+              </tr>
+            </thead>
+            <tbody id="worksTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── PRODUCTS ─── -->
+    <div class="page" id="page-products">
+      <div class="page-header">
+        <div><div class="page-title">商品管理</div><div class="page-desc">成品商城商品的增删改查</div></div>
+        <div class="page-actions">
+          <div class="search-bar"><span class="search-icon">🔍</span><input type="text" placeholder="搜索商品..." id="productsSearch" oninput="renderProductsTable()"></div>
+          <button class="btn btn-primary" onclick="openProductModal()">+ 新增商品</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">商品列表</div>
+          <select id="productsFilterCat" onchange="renderProductsTable()" style="background:var(--bg4);border:1px solid var(--border);border-radius:var(--radius);padding:6px 12px;color:var(--text);font-size:12px">
+            <option value="">全部分类</option>
+          </select>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>商品名称</th>
+                <th>分类</th>
+                <th>图标</th>
+                <th>价格</th>
+                <th>原价</th>
+                <th>标签</th>
+                <th>状态</th>
+                <th width="120">操作</th>
+              </tr>
+            </thead>
+            <tbody id="productsTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── CATEGORIES ─── -->
+    <div class="page" id="page-categories">
+      <div class="page-header">
+        <div><div class="page-title">分类字段管理</div><div class="page-desc">管理作品和商品的分类标签</div></div>
+        <div class="page-actions"><button class="btn btn-primary" onclick="openCatModal()">+ 新增分类</button></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+        <div class="card">
+          <div class="card-header"><div class="card-title">🖌️ 作品分类</div></div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>图标</th><th>名称（中）</th><th>名称（EN）</th><th>Key</th><th width="80">操作</th></tr></thead>
+              <tbody id="workCatsBody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">🛒 商品分类</div></div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>图标</th><th>名称（中）</th><th>名称（EN）</th><th>Key</th><th width="80">操作</th></tr></thead>
+              <tbody id="productCatsBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── ORDERS ─── -->
+    <div class="page" id="page-orders">
+      <div class="page-header">
+        <div><div class="page-title">定制订单</div><div class="page-desc">用户提交的定制申请记录</div></div>
+        <div class="page-actions">
+          <button class="btn btn-secondary btn-sm" onclick="exportOrders()">📥 导出 CSV</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>提交时间</th><th>昵称</th><th>联系方式</th><th>定制类型</th><th>预算</th><th>状态</th><th>备注</th><th width="100">操作</th></tr>
+            </thead>
+            <tbody id="ordersTableBody"></tbody>
+          </table>
+        </div>
+        <div class="card-footer" style="text-align:center;color:var(--text2);font-size:12px">
+          以下数据仅保存在浏览器本地，生产环境需对接后端 API
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── TESTIMONIALS ─── -->
+    <div class="page" id="page-testimonials">
+      <div class="page-header">
+        <div><div class="page-title">客户评价</div><div class="page-desc">管理展示的客户好评内容</div></div>
+        <div class="page-actions"><button class="btn btn-primary" onclick="openTestimonialModal()">+ 添加评价</button></div>
+      </div>
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>评价内容</th><th>客户昵称</th><th>角色/标签</th><th>星级</th><th>展示</th><th width="100">操作</th></tr></thead>
+            <tbody id="testimonialsTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── DYNAMICS ─── -->
+    <div class="page" id="page-dynamics">
+      <div class="page-header">
+        <div><div class="page-title">工作室动态</div><div class="page-desc">发布工作室新闻、视频、图集等内容</div></div>
+        <div class="page-actions"><button class="btn btn-primary" onclick="openDynamicModal()">+ 发布动态</button></div>
+      </div>
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>标题</th><th>类型</th><th>发布日期</th><th>精选</th><th>点赞/评论</th><th width="100">操作</th></tr></thead>
+            <tbody id="dynamicsTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── CUSTOM PAGE ─── -->
+    <div class="page" id="page-customPage">
+      <div class="page-header">
+        <div><div class="page-title">定制流程</div><div class="page-desc">定制申请页面的内容配置</div></div>
+        <div class="page-actions"><button class="btn btn-primary" onclick="saveCustomPage()">保存</button></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+        <div>
+          <div class="form-section">
+            <div class="form-section-title">页面标题</div>
+            <div class="form-field">
+              <label>标签文字</label>
+              <input type="text" id="customTag" value="私人定制">
+            </div>
+            <div class="form-field">
+              <label>主标题</label>
+              <input type="text" id="customTitle1" value="专属定制">
+            </div>
+            <div class="form-field">
+              <label>副标题（高亮）</label>
+              <input type="text" id="customTitle2" value="你的角色">
+            </div>
+            <div class="form-field">
+              <label>描述</label>
+              <textarea id="customDesc" style="min-height:80px">从设计到制作，我们全程陪伴。将您脑海中的角色形象变成可以穿戴的现实。</textarea>
+            </div>
+          </div>
+          <div class="form-section">
+            <div class="form-section-title">表单配置</div>
+            <div class="form-field">
+              <label>表单标题</label>
+              <input type="text" id="formTitle" value="开始定制">
+            </div>
+            <div class="form-field">
+              <label>表单副文字</label>
+              <input type="text" id="formSubTitle" value="填写以下信息，我们的设计师将在24小时内与您联系">
+            </div>
+            <div class="form-field">
+              <label>定制类型选项（每行一个，格式：value|显示名）</label>
+              <textarea id="customTypeOpts" style="min-height:120px;font-family:var(--font-mono);font-size:12px">head|兽头
+head-hands|兽头 + 兽手
+partial|局部套装（头+手+脚）
+fullsuit|全身兽装
+accessories|配饰定制</textarea>
+            </div>
+            <div class="form-field">
+              <label>预算范围选项（每行一个，格式：value|显示名）</label>
+              <textarea id="budgetOpts" style="min-height:100px;font-family:var(--font-mono);font-size:12px">1k-2k|￥1,000 - ￥2,000
+2k-5k|￥2,000 - ￥5,000
+5k-10k|￥5,000 - ￥10,000
+10k+|￥10,000 以上</textarea>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="form-section">
+            <div class="form-section-title">制作流程步骤</div>
+            <div id="customSteps"></div>
+            <button class="btn btn-secondary btn-sm" onclick="addCustomStep()" style="margin-top:8px">+ 添加步骤</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── MEDIA ─── -->
+    <div class="page" id="page-media">
+      <div class="page-header">
+        <div><div class="page-title">媒体库</div><div class="page-desc">管理站点中使用的图片、视频、音频资源</div></div>
+        <div class="page-actions">
+          <select id="mediaFilter" onchange="renderMediaGrid()" style="background:var(--bg4);border:1px solid var(--border);border-radius:var(--radius);padding:7px 12px;color:var(--text);font-size:12px">
+            <option value="">全部类型</option>
+            <option value="image">图片</option>
+            <option value="video">视频</option>
+            <option value="audio">音频</option>
+            <option value="model">3D模型</option>
+          </select>
+          <button class="btn btn-primary" onclick="openMediaUpload()">+ 添加媒体</button>
+        </div>
+      </div>
+
+      <div class="upload-zone" id="mediaDropZone" ondragover="event.preventDefault();this.classList.add('dragover')" ondragleave="this.classList.remove('dragover')" ondrop="handleMediaDrop(event)" onclick="triggerMediaUpload()">
+        <div class="upload-icon">📁</div>
+        <p>拖放文件到此处，或点击选择文件</p>
+        <div class="upload-hint">支持 JPG、PNG、GIF、WebP、MP4、MP3、GLB、GLTF 等格式（URL 引用模式）</div>
+      </div>
+      <input type="file" id="mediaFileInput" style="display:none" multiple accept="image/*,video/*,audio/*,.glb,.gltf" onchange="handleMediaFiles(this.files)">
+
+      <div style="margin:20px 0;display:flex;align-items:center;justify-content:space-between">
+        <div class="search-bar"><span class="search-icon">🔍</span><input type="text" placeholder="搜索媒体..." id="mediaSearch" oninput="renderMediaGrid()"></div>
+        <span style="font-size:12px;color:var(--text2)" id="mediaCount">共 0 项</span>
+      </div>
+
+      <div class="media-grid" id="mediaGrid"></div>
+    </div>
+
+    <!-- ─── 3D ASSETS ─── -->
+    <div class="page" id="page-assets3d">
+      <div class="page-header">
+        <div><div class="page-title">3D 资产管理</div><div class="page-desc">管理 Three.js 场景中使用的 3D 模型与配置</div></div>
+        <div class="page-actions"><button class="btn btn-primary" onclick="open3DAssetModal()">+ 添加 3D 资产</button></div>
+      </div>
+
+      <div class="form-section">
+        <div class="form-section-title">Hero 场景配置</div>
+        <div class="form-row cols4">
+          <div class="form-field">
+            <label>粒子数量</label>
+            <input type="number" id="a3dParticleCount" value="3000" min="500" max="10000" step="500">
+          </div>
+          <div class="form-field">
+            <label>旋转速度</label>
+            <input type="number" id="a3dRotateSpeed" value="0.001" step="0.0005" min="0" max="0.02">
+          </div>
+          <div class="form-field">
+            <label>粒子大小</label>
+            <input type="number" id="a3dParticleSize" value="0.04" step="0.01" min="0.01" max="0.2">
+          </div>
+          <div class="form-field">
+            <label>粒子透明度</label>
+            <input type="number" id="a3dOpacity" value="0.7" step="0.1" min="0.1" max="1">
+          </div>
+        </div>
+        <div class="form-field">
+          <label>粒子颜色列表（十六进制，逗号分隔）</label>
+          <input type="text" id="a3dColors" value="#7c3aed,#f72585,#06d6a0,#4cc9f0">
+        </div>
+        <div class="toggle-row">
+          <div><div class="toggle-label">启用鼠标交互</div><div class="toggle-desc">鼠标移动控制场景旋转</div></div>
+          <label class="toggle"><input type="checkbox" id="a3dMouseInteract" checked><span class="toggle-slider"></span></label>
+        </div>
+        <div class="toggle-row">
+          <div><div class="toggle-label">显示中央线框球体</div></div>
+          <label class="toggle"><input type="checkbox" id="a3dShowWire" checked><span class="toggle-slider"></span></label>
+        </div>
+        <div class="toggle-row">
+          <div><div class="toggle-label">显示轨道环</div></div>
+          <label class="toggle"><input type="checkbox" id="a3dShowRings" checked><span class="toggle-slider"></span></label>
+        </div>
+        <div style="margin-top:16px">
+          <button class="btn btn-primary btn-sm" onclick="save3DConfig()">保存 3D 配置</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><div class="card-title">3D 模型资产库</div></div>
+        <div class="card-body">
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px" id="assets3dGrid"></div>
+          <div class="empty-state" id="assets3dEmpty">
+            <div class="empty-icon">🧊</div>
+            <div class="empty-title">暂无 3D 资产</div>
+            <div class="empty-desc">添加 GLB/GLTF 模型或配置场景参数</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── CONTACT ─── -->
+    <div class="page" id="page-contact">
+      <div class="page-header">
+        <div><div class="page-title">联系我们</div><div class="page-desc">联系方式与工作时间配置</div></div>
+        <div class="page-actions"><button class="btn btn-primary" onclick="saveContact()">保存</button></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+        <div>
+          <div class="form-section">
+            <div class="form-section-title">基础联系信息</div>
+            <div class="form-field">
+              <label>联系邮箱</label>
+              <input type="email" id="contactEmail" value="studio@showcomefu.com">
+            </div>
+            <div class="form-field">
+              <label>微信号</label>
+              <input type="text" id="contactWechat" value="ShowComeFu">
+            </div>
+            <div class="form-field">
+              <label>工作时间</label>
+              <input type="text" id="contactHours" value="周一至周六 10:00-20:00">
+            </div>
+            <div class="form-field">
+              <label>地址（可选）</label>
+              <input type="text" id="contactAddr" placeholder="工作室地址">
+            </div>
+          </div>
+          <div class="form-section">
+            <div class="form-section-title">联系入口展示</div>
+            <div id="contactChips"></div>
+            <button class="btn btn-secondary btn-sm" onclick="addContactChip()" style="margin-top:12px">+ 添加联系入口</button>
+          </div>
+        </div>
+        <div>
+          <div class="form-section">
+            <div class="form-section-title">二维码管理</div>
+            <div id="qrCodes"></div>
+            <button class="btn btn-secondary btn-sm" onclick="addQrCode()" style="margin-top:12px">+ 添加二维码</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── SOCIAL ─── -->
+    <div class="page" id="page-social">
+      <div class="page-header">
+        <div><div class="page-title">第三方平台</div><div class="page-desc">管理各平台账号信息、链接和二维码</div></div>
+        <div class="page-actions"><button class="btn btn-primary" onclick="openSocialModal()">+ 添加平台</button></div>
+      </div>
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>图标</th><th>平台名称</th><th>账号/Handle</th><th>链接</th><th>Footer</th><th>联系页</th><th width="100">操作</th></tr></thead>
+            <tbody id="socialTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="form-section" style="margin-top:20px">
+        <div class="form-section-title">Footer 社交图标配置</div>
+        <div class="field-hint" style="margin-bottom:12px">在上方表格中勾选"Footer"列来控制哪些平台图标显示在页脚</div>
+        <div class="toggle-row">
+          <div><div class="toggle-label">在 Footer 显示社交图标区域</div></div>
+          <label class="toggle"><input type="checkbox" id="showFooterSocial" checked><span class="toggle-slider"></span></label>
+        </div>
+        <div class="toggle-row">
+          <div><div class="toggle-label">在联系我们页面显示平台入口</div></div>
+          <label class="toggle"><input type="checkbox" id="showContactSocial" checked><span class="toggle-slider"></span></label>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── ADMINS ─── -->
+    <div class="page" id="page-admins">
+      <div class="page-header">
+        <div><div class="page-title">管理员账号</div><div class="page-desc">管理有权访问后台的账号</div></div>
+        <div class="page-actions"><button class="btn btn-primary" onclick="openAdminModal()">+ 新增管理员</button></div>
+      </div>
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>头像</th><th>用户名</th><th>角色</th><th>最后登录</th><th>状态</th><th width="120">操作</th></tr></thead>
+            <tbody id="adminsTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── EXPORT/IMPORT ─── -->
+    <div class="page" id="page-exportImport">
+      <div class="page-header">
+        <div><div class="page-title">导入 / 导出</div><div class="page-desc">备份与恢复站点数据</div></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+        <div class="card">
+          <div class="card-header"><div class="card-title">📤 导出数据</div></div>
+          <div class="card-body">
+            <p style="font-size:13px;color:var(--text2);margin-bottom:16px;line-height:1.6">将当前 CMS 所有配置导出为 JSON 文件，可用于备份或迁移到其他环境</p>
+            <button class="btn btn-primary" onclick="exportData()">导出完整数据 JSON</button>
+            <div class="divider"></div>
+            <p style="font-size:12px;color:var(--text2);margin-bottom:12px">当前数据快照：</p>
+            <div class="code-block" id="dataSnapshot" style="max-height:200px;overflow:auto;font-size:11px"></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">📥 导入数据</div></div>
+          <div class="card-body">
+            <p style="font-size:13px;color:var(--text2);margin-bottom:16px;line-height:1.6">从 JSON 文件导入数据，将覆盖当前所有配置</p>
+            <div class="upload-zone" onclick="document.getElementById('importFileInput').click()" style="padding:20px">
+              <div class="upload-icon" style="font-size:20px">📂</div>
+              <p>点击选择 JSON 文件</p>
+            </div>
+            <input type="file" id="importFileInput" style="display:none" accept=".json" onchange="importData(this)">
+            <div class="divider"></div>
+            <button class="btn btn-danger" onclick="resetAllData()">⚠️ 重置所有数据（恢复默认）</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     MODALS
+═══════════════════════════════════════════ -->
+
+<!-- Work Modal -->
+<div class="modal-backdrop" id="workModal">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <div class="modal-title" id="workModalTitle">新增作品</div>
+      <div class="modal-close" onclick="closeModal('workModal')">✕</div>
+    </div>
+    <div class="modal-body">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+        <div>
+          <div class="form-row full"><div class="form-field"><label>作品名称 *</label><input type="text" id="wm-name" placeholder="如：暗夜狐灵"></div></div>
+          <div class="form-row">
+            <div class="form-field">
+              <label>作品类型 *</label>
+              <select id="wm-type"><option value="head">兽头</option><option value="fullsuit">全身兽装</option><option value="partial">局部套装</option><option value="accessory">配饰</option></select>
+            </div>
+            <div class="form-field">
+              <label>状态</label>
+              <select id="wm-status"><option value="published">已发布</option><option value="draft">草稿</option><option value="hidden">隐藏</option></select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-field">
+              <label>代表颜色</label>
+              <div class="color-field">
+                <div class="color-preview" id="wm-cp" onclick="triggerColor('wm-color-picker')" style="background:#7c3aed"></div>
+                <input type="text" id="wm-color" value="#7c3aed" oninput="syncColor('wm-color','wm-cp')">
+                <input type="color" id="wm-color-picker" value="#7c3aed" oninput="syncColorPicker('wm-color-picker','wm-color','wm-cp')">
+              </div>
+            </div>
+            <div class="form-field">
+              <label>图标 Emoji</label>
+              <input type="text" id="wm-emoji" value="🦊" style="font-size:20px;text-align:center">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-field"><label>点赞数</label><input type="number" id="wm-likes" value="0" min="0"></div>
+            <div class="form-field"><label>浏览数</label><input type="number" id="wm-views" value="0" min="0"></div>
+          </div>
+          <div class="form-field">
+            <label>特色展示（Featured）</label>
+            <label class="toggle"><input type="checkbox" id="wm-featured"><span class="toggle-slider"></span></label>
+          </div>
+        </div>
+        <div>
+          <div class="form-field">
+            <label>作品封面图 URL</label>
+            <input type="text" id="wm-cover" placeholder="https://...（留空使用程序化生成）">
+          </div>
+          <div class="form-field">
+            <label>作品图片集（每行一个URL）</label>
+            <textarea id="wm-images" style="min-height:80px" placeholder="https://...\nhttps://..."></textarea>
+          </div>
+          <div class="form-field">
+            <label>作品描述</label>
+            <textarea id="wm-desc" style="min-height:80px" placeholder="作品介绍文字..."></textarea>
+          </div>
+          <div class="form-field">
+            <label>制作时间</label>
+            <input type="text" id="wm-date" placeholder="如：2024年10月">
+          </div>
+          <div class="form-field">
+            <label>材料说明</label>
+            <input type="text" id="wm-material" placeholder="如：高级毛绒、EVA泡沫">
+          </div>
+          <div class="form-field">
+            <label>视频链接（可选）</label>
+            <input type="text" id="wm-video" placeholder="B站 / 抖音视频 URL">
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('workModal')">取消</button>
+      <button class="btn btn-primary" onclick="saveWork()">保存作品</button>
+    </div>
+  </div>
+</div>
+
+<!-- Product Modal -->
+<div class="modal-backdrop" id="productModal">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <div class="modal-title" id="productModalTitle">新增商品</div>
+      <div class="modal-close" onclick="closeModal('productModal')">✕</div>
+    </div>
+    <div class="modal-body">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+        <div>
+          <div class="form-field"><label>商品名称 *</label><input type="text" id="pm-name" placeholder="如：火焰狐狸兽头"></div>
+          <div class="form-row">
+            <div class="form-field">
+              <label>商品分类 *</label>
+              <select id="pm-category"></select>
+            </div>
+            <div class="form-field">
+              <label>状态</label>
+              <select id="pm-status"><option value="active">上架</option><option value="inactive">下架</option><option value="soldout">售罄</option></select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-field"><label>售价（¥）*</label><input type="number" id="pm-price" placeholder="2800" min="0"></div>
+            <div class="form-field"><label>原价（¥，划线）</label><input type="number" id="pm-oldprice" placeholder="留空不显示" min="0"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-field">
+              <label>标签</label>
+              <select id="pm-badge"><option value="">无</option><option value="new">新品</option><option value="hot">热销</option><option value="sale">特惠</option></select>
+            </div>
+            <div class="form-field">
+              <label>库存数量</label>
+              <input type="number" id="pm-stock" placeholder="0=无限" min="0" value="0">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-field">
+              <label>代表颜色</label>
+              <div class="color-field">
+                <div class="color-preview" id="pm-cp" style="background:#7c3aed"></div>
+                <input type="text" id="pm-color" value="#7c3aed" oninput="syncColor('pm-color','pm-cp')">
+                <input type="color" id="pm-color-picker" value="#7c3aed" oninput="syncColorPicker('pm-color-picker','pm-color','pm-cp')">
+              </div>
+            </div>
+            <div class="form-field">
+              <label>图标 Emoji</label>
+              <input type="text" id="pm-emoji" value="🦊" style="font-size:20px;text-align:center">
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="form-field"><label>商品封面图 URL</label><input type="text" id="pm-cover" placeholder="https://..."></div>
+          <div class="form-field">
+            <label>商品图片集（每行一个URL）</label>
+            <textarea id="pm-images" style="min-height:60px" placeholder="https://..."></textarea>
+          </div>
+          <div class="form-field">
+            <label>商品详细描述</label>
+            <textarea id="pm-desc" style="min-height:100px" placeholder="商品介绍、材质说明等..."></textarea>
+          </div>
+          <div class="form-field">
+            <label>规格参数（每行一个，格式：规格名:值）</label>
+            <textarea id="pm-specs" style="min-height:80px;font-family:var(--font-mono);font-size:12px" placeholder="材质:高级毛绒\n尺寸:均码可调整\n重量:约1.2kg"></textarea>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('productModal')">取消</button>
+      <button class="btn btn-primary" onclick="saveProduct()">保存商品</button>
+    </div>
+  </div>
+</div>
+
+<!-- Testimonial Modal -->
+<div class="modal-backdrop" id="testimonialModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="testimonialModalTitle">添加评价</div>
+      <div class="modal-close" onclick="closeModal('testimonialModal')">✕</div>
+    </div>
+    <div class="modal-body">
+      <div class="form-field"><label>评价内容 *</label><textarea id="tm-text" style="min-height:100px" placeholder="客户的评价内容..."></textarea></div>
+      <div class="form-row">
+        <div class="form-field"><label>客户昵称 *</label><input type="text" id="tm-author" placeholder="昵称"></div>
+        <div class="form-field"><label>角色/标签</label><input type="text" id="tm-role" placeholder="如：全身兽装定制客户"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-field">
+          <label>星级</label>
+          <select id="tm-stars"><option value="5">⭐⭐⭐⭐⭐ 5星</option><option value="4">⭐⭐⭐⭐ 4星</option><option value="3">⭐⭐⭐ 3星</option></select>
+        </div>
+        <div class="form-field">
+          <label>头像图标</label>
+          <input type="text" id="tm-avatar" placeholder="Emoji 或留空自动生成" style="font-size:18px">
+        </div>
+      </div>
+      <div class="form-field">
+        <label>展示在前台</label>
+        <label class="toggle"><input type="checkbox" id="tm-visible" checked><span class="toggle-slider"></span></label>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('testimonialModal')">取消</button>
+      <button class="btn btn-primary" onclick="saveTestimonial()">保存评价</button>
+    </div>
+  </div>
+</div>
+
+<!-- Dynamic Modal -->
+<div class="modal-backdrop" id="dynamicModal">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <div class="modal-title" id="dynamicModalTitle">发布动态</div>
+      <div class="modal-close" onclick="closeModal('dynamicModal')">✕</div>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-field">
+          <label>内容类型</label>
+          <select id="dm-type"><option value="video">视频</option><option value="photo">图集</option><option value="article">文章</option></select>
+        </div>
+        <div class="form-field">
+          <label>发布日期</label>
+          <input type="date" id="dm-date">
+        </div>
+      </div>
+      <div class="form-field"><label>标题 *</label><input type="text" id="dm-title" placeholder="动态标题"></div>
+      <div class="form-field">
+        <label>摘要（列表页展示）</label>
+        <textarea id="dm-excerpt" style="min-height:80px" placeholder="简短摘要，约100字以内..."></textarea>
+      </div>
+      <div class="form-field">
+        <label>封面图 URL</label>
+        <input type="text" id="dm-cover" placeholder="https://...">
+      </div>
+      <div class="form-field">
+        <label>正文内容</label>
+        <div class="richtext-toolbar">
+          <button onclick="execRich('bold')"><b>B</b></button>
+          <button onclick="execRich('italic')"><i>I</i></button>
+          <button onclick="execRich('underline')"><u>U</u></button>
+          <button onclick="execRich('insertUnorderedList')">≡</button>
+          <button onclick="execRich('insertOrderedList')">1.</button>
+          <button onclick="insertLink()">🔗</button>
+        </div>
+        <div class="richtext" id="dm-content" contenteditable="true" placeholder="在此输入正文内容..."></div>
+      </div>
+      <div class="form-row">
+        <div class="form-field"><label>点赞数（初始）</label><input type="number" id="dm-likes" value="0" min="0"></div>
+        <div class="form-field"><label>评论数（初始）</label><input type="number" id="dm-comments" value="0" min="0"></div>
+      </div>
+      <div class="form-field">
+        <label>精选展示</label>
+        <label class="toggle"><input type="checkbox" id="dm-featured"><span class="toggle-slider"></span></label>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('dynamicModal')">取消</button>
+      <button class="btn btn-primary" onclick="saveDynamic()">发布动态</button>
+    </div>
+  </div>
+</div>
+
+<!-- Category Modal -->
+<div class="modal-backdrop modal-sm" id="catModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="catModalTitle">新增分类</div>
+      <div class="modal-close" onclick="closeModal('catModal')">✕</div>
+    </div>
+    <div class="modal-body">
+      <div class="form-field">
+        <label>分类类型</label>
+        <select id="cm-scope"><option value="work">作品分类</option><option value="product">商品分类</option></select>
+      </div>
+      <div class="form-row">
+        <div class="form-field"><label>图标 Emoji</label><input type="text" id="cm-icon" placeholder="🦊" style="font-size:18px;text-align:center"></div>
+        <div class="form-field"><label>Key（英文唯一）</label><input type="text" id="cm-key" placeholder="fox_head"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-field"><label>中文名称</label><input type="text" id="cm-name" placeholder="狐狸兽头"></div>
+        <div class="form-field"><label>英文名称</label><input type="text" id="cm-nameEn" placeholder="Fox Head"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('catModal')">取消</button>
+      <button class="btn btn-primary" onclick="saveCategory()">保存分类</button>
+    </div>
+  </div>
+</div>
+
+<!-- Social Modal -->
+<div class="modal-backdrop modal-sm" id="socialModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="socialModalTitle">添加平台</div>
+      <div class="modal-close" onclick="closeModal('socialModal')">✕</div>
+    </div>
+    <div class="modal-body">
+      <div class="form-field"><label>平台名称 *</label><input type="text" id="sm-name" placeholder="如：微信、抖音、Twitter"></div>
+      <div class="form-row">
+        <div class="form-field"><label>图标 Emoji</label><input type="text" id="sm-icon" placeholder="💬" style="font-size:18px;text-align:center"></div>
+        <div class="form-field"><label>图标 URL（可选）</label><input type="text" id="sm-iconUrl" placeholder="https://..."></div>
+      </div>
+      <div class="form-field"><label>账号/Handle</label><input type="text" id="sm-handle" placeholder="@username"></div>
+      <div class="form-field"><label>链接 URL</label><input type="text" id="sm-url" placeholder="https://..."></div>
+      <div class="form-field"><label>二维码图片 URL</label><input type="text" id="sm-qr" placeholder="https://...（可选）"></div>
+      <div style="display:flex;gap:24px;margin-top:12px">
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+          <input type="checkbox" id="sm-footer" checked> 显示在 Footer
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+          <input type="checkbox" id="sm-contact" checked> 显示在联系页
+        </label>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('socialModal')">取消</button>
+      <button class="btn btn-primary" onclick="saveSocial()">保存平台</button>
+    </div>
+  </div>
+</div>
+
+<!-- Admin Modal -->
+<div class="modal-backdrop modal-sm" id="adminModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">新增管理员</div>
+      <div class="modal-close" onclick="closeModal('adminModal')">✕</div>
+    </div>
+    <div class="modal-body">
+      <div class="form-field"><label>用户名 *</label><input type="text" id="am-username" placeholder="username"></div>
+      <div class="form-field"><label>密码 *</label><input type="password" id="am-password" placeholder="设置密码"></div>
+      <div class="form-field"><label>确认密码</label><input type="password" id="am-password2" placeholder="再次输入密码"></div>
+      <div class="form-field">
+        <label>角色权限</label>
+        <select id="am-role"><option value="admin">超级管理员</option><option value="editor">编辑员</option><option value="viewer">只读访客</option></select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('adminModal')">取消</button>
+      <button class="btn btn-primary" onclick="saveAdmin()">创建账号</button>
+    </div>
+  </div>
+</div>
+
+<!-- 3D Asset Modal -->
+<div class="modal-backdrop modal-sm" id="asset3dModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">添加 3D 资产</div>
+      <div class="modal-close" onclick="closeModal('asset3dModal')">✕</div>
+    </div>
+    <div class="modal-body">
+      <div class="form-field"><label>资产名称 *</label><input type="text" id="a3m-name" placeholder="如：狐狸兽头模型"></div>
+      <div class="form-field">
+        <label>使用场景</label>
+        <select id="a3m-scene"><option value="hero">Hero 背景</option><option value="about">关于我们</option><option value="product">商品预览</option><option value="other">其他</option></select>
+      </div>
+      <div class="form-field"><label>模型 URL（GLB/GLTF）</label><input type="text" id="a3m-url" placeholder="https://...model.glb"></div>
+      <div class="form-field"><label>预览图 URL</label><input type="text" id="a3m-preview" placeholder="https://...preview.png"></div>
+      <div class="form-field"><label>图标 Emoji（无模型时显示）</label><input type="text" id="a3m-emoji" placeholder="🦊" style="font-size:18px;text-align:center"></div>
+      <div class="form-field"><label>描述说明</label><textarea id="a3m-desc" style="min-height:60px" placeholder="简要说明此资产用途"></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('asset3dModal')">取消</button>
+      <button class="btn btn-primary" onclick="save3DAsset()">添加资产</button>
+    </div>
+  </div>
+</div>
+
+<!-- Confirm Dialog -->
+<div class="modal-backdrop confirm-dialog" id="confirmDialog">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="confirmTitle">确认操作</div>
+      <div class="modal-close" onclick="closeModal('confirmDialog')">✕</div>
+    </div>
+    <div class="modal-body">
+      <p id="confirmMsg" style="font-size:14px;line-height:1.6;color:var(--text2)"></p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('confirmDialog')">取消</button>
+      <button class="btn btn-danger" id="confirmBtn" onclick="">确认删除</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast Container -->
+<div id="toastContainer"></div>
+
+<script>
+// ═══════════════════════════════════════════
+// CONSTANTS & STATE
+// ═══════════════════════════════════════════
+const ADMIN_KEY = 'showcomefu_admins';
+const CMS_KEY   = 'showcomefu_frontend';
+const LOG_KEY   = 'showcomefu_log';
+
+const DEFAULT_ADMINS = [
+  { username:'admin', password:'showcome2024', role:'admin', lastLogin: new Date().toISOString(), active:true }
+];
+
+const DEFAULT_CMS = {
+  site: { name:'兽可梦', nameEn:'Show Come Studio', pageTitle:'兽可梦 Show Come | 专业兽装定制工作室', slogan:'专业兽装定制工作室 · 2024年度最佳工作室', footerCopy:'© 2024 兽可梦 Show Come Studio. 保留所有权利.', icp:'', logoEmoji:'🐾', logoUrl:'', faviconUrl:'', newsletterText:'订阅我们的邮件，获取最新作品、活动和优惠信息', customCss:'', navShowCta:true, navShowCart:true, navShowLogin:true },
+  theme: { bg:'#0a0a0f', bg2:'#111118', accent:'#7c3aed', accent2:'#06d6a0', accent3:'#f72585', text:'#e8e8f0', cursor:true, noise:true, parallax:true, loader:true, reveal:true, d3:true, fontBrand:'Orbitron', fontBody:"'Noto Sans SC'" },
+  seo: { title:'兽可梦 Show Come | 专业兽装定制工作室', desc:'兽可梦（Show Come）专业兽头兽装定制工作室，提供高品质定制与成品售卖服务', keywords:'兽头定制,兽装,fursuit,兽可梦,Show Come', canonical:'', ogTitle:'兽可梦 Show Come — 专业兽装定制', ogDesc:'高品质兽头、兽装定制工作室，将你的角色梦想变为现实', ogImage:'', robots:'index,follow', gaId:'' },
+  hero: { line1:'让梦想中的', line2:'兽人形象', line3:'成为现实', subtitle:'兽可梦（Show Come）专注于高品质兽头、兽装制作。\n每一件作品都是匠心独运的艺术品，为您打造专属的毛茸茸身份。', badge:'专业兽装定制工作室 · 2024年度最佳工作室', btnPrimary:'探索作品', btnSecondary:'开始定制', stats:[ {value:500,suffix:'+',label:'完成作品'},{value:300,suffix:'+',label:'满意客户'},{value:6,suffix:'+',label:'年制作经验'} ], marquee:'兽头定制,全身兽装,兽耳配件,3D模型展示,客户定制,成品现货,Show Come Studio,专业制作', particleCount:3000, particleColor:'#7c3aed' },
+  about: { tag:'关于兽可梦', title1:'匠心制作', title2:'每一件都是艺术', desc:'兽可梦工作室成立于2018年，专注于高品质兽头与兽装的创作与制作。我们将传统手工艺与现代技术相结合，为每位客户打造独一无二的毛茸茸角色形象。', services:[ {icon:'🎨',title:'原创设计',desc:'专业设计师团队为您量身打造独特角色设计，从概念草图到最终效果图全程陪伴'},{icon:'🔧',title:'精湛制作',desc:'采用优质EVA泡沫、高级毛绒面料等材料，手工精细打磨，确保每件作品的品质'},{icon:'📦',title:'成品现货',desc:'精选库存成品，支持快速发货，让您无需等待也能拥有心仪的兽装'},{icon:'🌟',title:'售后保障',desc:'专属售后服务团队，提供使用指导、维修修复等全方位保障'} ] },
+  works: [
+    {id:1,name:'暗夜狐灵',type:'head',typeName:'兽头',likes:328,views:2140,featured:true,status:'published',color:'#7c3aed',emoji:'🦊',desc:'',date:'',material:''},
+    {id:2,name:'星辰龙骑',type:'fullsuit',typeName:'全身兽装',likes:512,views:3780,featured:false,status:'published',color:'#06d6a0',emoji:'🐉',desc:'',date:'',material:''},
+    {id:3,name:'月影猫娘',type:'head',typeName:'兽头',likes:245,views:1890,featured:false,status:'published',color:'#f72585',emoji:'🐱',desc:'',date:'',material:''},
+    {id:4,name:'雪原熊王',type:'fullsuit',typeName:'全身兽装',likes:189,views:1230,featured:false,status:'published',color:'#4cc9f0',emoji:'🐻',desc:'',date:'',material:''},
+    {id:5,name:'电光豹装',type:'partial',typeName:'局部套装',likes:431,views:2670,featured:false,status:'published',color:'#f4a261',emoji:'🐆',desc:'',date:'',material:''},
+    {id:6,name:'森精灵耳',type:'accessory',typeName:'配饰',likes:156,views:890,featured:false,status:'published',color:'#06d6a0',emoji:'🍃',desc:'',date:'',material:''},
+  ],
+  products: [
+    {id:1,name:'火焰狐狸兽头',category:'head',price:2800,oldPrice:3200,badge:'hot',emoji:'🦊',color:'#f4a261',status:'active',desc:'',stock:0},
+    {id:2,name:'蓝冰狼全身装',category:'fullsuit',price:8800,oldPrice:null,badge:'new',emoji:'🐺',color:'#4cc9f0',status:'active',desc:'',stock:0},
+    {id:3,name:'粉樱猫耳套装',category:'ear',price:380,oldPrice:null,badge:'sale',emoji:'🐱',color:'#f72585',status:'active',desc:'',stock:0},
+    {id:4,name:'草木鹿兽爪',category:'paw',price:680,oldPrice:null,badge:null,emoji:'🦌',color:'#06d6a0',status:'active',desc:'',stock:0},
+    {id:5,name:'暗影豹头',category:'head',price:3200,oldPrice:null,badge:'new',emoji:'🐆',color:'#7c3aed',status:'active',desc:'',stock:0},
+    {id:6,name:'毛茸虎爪',category:'paw',price:520,oldPrice:null,badge:null,emoji:'🐯',color:'#f4a261',status:'active',desc:'',stock:0},
+    {id:7,name:'精灵兔耳',category:'ear',price:280,oldPrice:null,badge:'sale',emoji:'🐰',color:'#a855f7',status:'active',desc:'',stock:0},
+    {id:8,name:'龙纹尾巴',category:'tail',price:880,oldPrice:null,badge:'new',emoji:'🐉',color:'#06d6a0',status:'active',desc:'',stock:0},
+  ],
+  workCategories: [ {id:1,icon:'🦊',name:'兽头',nameEn:'Head',key:'head'},{id:2,icon:'🐻',name:'全身兽装',nameEn:'Full Suit',key:'fullsuit'},{id:3,icon:'🐆',name:'局部套装',nameEn:'Partial',key:'partial'},{id:4,icon:'✨',name:'配饰',nameEn:'Accessory',key:'accessory'} ],
+  productCategories: [ {id:1,icon:'🦊',name:'兽头',nameEn:'Head',key:'head'},{id:2,icon:'🐻',name:'全身装',nameEn:'Full Suit',key:'fullsuit'},{id:3,icon:'🐰',name:'兽耳',nameEn:'Ear',key:'ear'},{id:4,icon:'🐾',name:'兽手/脚',nameEn:'Paw',key:'paw'},{id:5,icon:'🦎',name:'兽尾',nameEn:'Tail',key:'tail'},{id:6,icon:'✨',name:'配饰',nameEn:'Accessory',key:'accessory'} ],
+  testimonials: [
+    {id:1,text:'真的超级超级满意！设计师完全get到了我的想法，兽头做工精细，毛绒手感超棒，穿上之后整个人都更有自信了！',author:'小狐七',role:'全身兽装定制客户',stars:5,visible:true},
+    {id:2,text:'工作室的老师们超级耐心，前后改了好几版设计图，直到我完全满意才开始制作。制作周期也在预期之内，推荐！',author:'阿龙',role:'兽头定制客户',stars:5,visible:true},
+    {id:3,text:'成品现货质量很好，和图片描述完全一致，包装也很仔细，跨省运输没有任何损坏。会继续支持的！',author:'苹果汁',role:'成品购买客户',stars:5,visible:true},
+    {id:4,text:'已经是第三次定制了，每次都有新的惊喜。这次的电光豹是我最喜欢的一套，上展会回头率超高！',author:'電閃萌主',role:'老客户·局部套装',stars:5,visible:true},
+    {id:5,text:'从联系到收到成品全程体验都很好，老师们专业且友善，对材料和工艺的解释很详细。值得信赖的工作室！',author:'柴犬小年',role:'初次定制客户',stars:5,visible:true},
+    {id:6,text:'兽头的眼睛做得特别有灵气，看着就像真的一样。会发光的眼睛是亮点！感谢工作室圆了我多年的兽梦。',author:'Aurora',role:'发光兽头定制客户',stars:5,visible:true},
+  ],
+  dynamics: [
+    {id:1,type:'video',typeName:'视频',title:'《暗夜狐灵》制作全记录 —— 从设计稿到成品的60天',date:'2024-12-01',excerpt:'跟随镜头，见证一件精品兽头从一张简单草图，到最终成品的完整制作过程。每一步都充满惊喜...',content:'',likes:892,comments:47,featured:true,cover:''},
+    {id:2,type:'photo',typeName:'图集',title:'2024年秋季作品集正式发布',date:'2024-11-20',excerpt:'本季度完成的20件定制作品精选展示，涵盖兽头、全身装、局部套装等多种类型...',content:'',likes:634,comments:38,featured:false,cover:''},
+    {id:3,type:'article',typeName:'文章',title:'如何选择适合自己的兽头类型？完整指南',date:'2024-11-10',excerpt:'新手入门必看！我们整理了关于兽头选择的全方位指南，帮助你做出最适合的选择...',content:'',likes:421,comments:29,featured:false,cover:''},
+  ],
+  customPage: { tag:'私人定制', title1:'专属定制', title2:'你的角色', desc:'从设计到制作，我们全程陪伴。将您脑海中的角色形象变成可以穿戴的现实。', formTitle:'开始定制', formSubTitle:'填写以下信息，我们的设计师将在24小时内与您联系', customTypeOpts:'head|兽头\nhead-hands|兽头 + 兽手\npartial|局部套装（头+手+脚）\nfullsuit|全身兽装\naccessories|配饰定制', budgetOpts:'1k-2k|￥1,000 - ￥2,000\n2k-5k|￥2,000 - ￥5,000\n5k-10k|￥5,000 - ￥10,000\n10k+|￥10,000 以上', steps:[{num:'01',title:'提交需求',desc:'填写定制表单，上传参考图片，描述您的角色设定、配色、尺寸等详细需求'},{num:'02',title:'设计确认',desc:'设计师根据需求绘制效果图，与您沟通确认设计细节，修改直至满意为止'},{num:'03',title:'付款制作',desc:'确认设计后支付定金，正式进入制作流程，制作周期一般为6-12周'},{num:'04',title:'验收交付',desc:'作品完成后拍摄视频/照片供您验收，确认无误后支付尾款，安全打包发货'}] },
+  contact: { email:'studio@showcomefu.com', wechat:'ShowComeFu', hours:'周一至周六 10:00-20:00', addr:'', chips:[{icon:'💬',label:'微信咨询',url:'#'},{icon:'📱',label:'抖音 @兽可梦',url:'#'},{icon:'📕',label:'小红书',url:'#'},{icon:'✉️',label:'邮件联系',url:'#'}], qrCodes:[] },
+  social: [
+    {id:1,name:'微信',icon:'💬',iconUrl:'',url:'#',handle:'ShowComeFu',qr:'',showFooter:true,showContact:true},
+    {id:2,name:'抖音',icon:'🎵',iconUrl:'',url:'#',handle:'@兽可梦',qr:'',showFooter:true,showContact:true},
+    {id:3,name:'小红书',icon:'📕',iconUrl:'',url:'#',handle:'',qr:'',showFooter:true,showContact:true},
+    {id:4,name:'微博',icon:'🌐',iconUrl:'',url:'#',handle:'',qr:'',showFooter:true,showContact:false},
+    {id:5,name:'B站',icon:'📺',iconUrl:'',url:'#',handle:'',qr:'',showFooter:true,showContact:false},
+  ],
+  media: [],
+  assets3d: [],
+  d3Config: { particleCount:3000, rotateSpeed:0.001, particleSize:0.04, opacity:0.7, colors:'#7c3aed,#f72585,#06d6a0,#4cc9f0', mouseInteract:true, showWire:true, showRings:true },
+  flags: { siteOnline:true, shopOnline:true, customOpen:true },
+};
+
+let CMS = {};
+let ADMINS = [];
+let currentUser = null;
+let editingId = { work:null, product:null, testimonial:null, dynamic:null, social:null };
+
+// ═══════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════
+function init() {
+  ADMINS = JSON.parse(localStorage.getItem(ADMIN_KEY) || 'null') || DEFAULT_ADMINS;
+  const stored = localStorage.getItem(CMS_KEY);
+  CMS = stored ? deepMerge(DEFAULT_CMS, JSON.parse(stored)) : JSON.parse(JSON.stringify(DEFAULT_CMS));
+  // ensure arrays don't get wiped
+  ['works','products','workCategories','productCategories','testimonials','dynamics','social','media','assets3d'].forEach(k => {
+    if (!CMS[k] || !Array.isArray(CMS[k])) CMS[k] = DEFAULT_CMS[k];
+    if (CMS[k].length === 0 && DEFAULT_CMS[k].length > 0) CMS[k] = DEFAULT_CMS[k];
+  });
+
+  const sess = sessionStorage.getItem('showcomefu_session');
+  if (sess) {
+    currentUser = JSON.parse(sess);
+    startApp();
+  }
+}
+
+function deepMerge(base, override) {
+  const r = JSON.parse(JSON.stringify(base));
+  for (const k in override) {
+    if (override[k] !== null && typeof override[k] === 'object' && !Array.isArray(override[k])) {
+      r[k] = deepMerge(r[k] || {}, override[k]);
+    } else if (override[k] !== undefined) {
+      r[k] = override[k];
+    }
+  }
+  return r;
+}
+
+// ═══════════════════════════════════════════
+// AUTH
+// ═══════════════════════════════════════════
+function doLogin() {
+  const u = document.getElementById('loginUser').value.trim();
+  const p = document.getElementById('loginPass').value;
+  const admin = ADMINS.find(a => a.username === u && a.password === p && a.active !== false);
+  if (!admin) {
+    document.getElementById('loginError').style.display = 'block';
+    return;
+  }
+  admin.lastLogin = new Date().toISOString();
+  saveAdmins();
+  currentUser = admin;
+  sessionStorage.setItem('showcomefu_session', JSON.stringify(admin));
+  document.getElementById('loginScreen').style.display = 'none';
+  startApp();
+}
+
+document.getElementById('loginPass').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
+
+function doLogout() {
+  sessionStorage.removeItem('showcomefu_session');
+  location.reload();
+}
+
+// ═══════════════════════════════════════════
+// APP START
+// ═══════════════════════════════════════════
+function startApp() {
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('app').classList.add('visible');
+  document.getElementById('sidebarUser').textContent = currentUser.username;
+  document.getElementById('sidebarAvatar').textContent = currentUser.username[0].toUpperCase();
+  populateAllForms();
+  refreshDashboard();
+  showPage('dashboard');
+}
+
+// ═══════════════════════════════════════════
+// NAVIGATION
+// ═══════════════════════════════════════════
+const PAGE_META = {
+  dashboard: {title:'数据仪表盘', path:'概览'},
+  siteConfig: {title:'基础设置', path:'站点配置'},
+  theme: {title:'外观主题', path:'站点配置 / 外观主题'},
+  seo: {title:'SEO 设置', path:'站点配置 / SEO'},
+  hero: {title:'首页 Hero', path:'内容管理 / 首页 Hero'},
+  about: {title:'关于我们', path:'内容管理 / 关于我们'},
+  works: {title:'作品集管理', path:'内容管理 / 作品集'},
+  testimonials: {title:'客户评价', path:'内容管理 / 客户评价'},
+  dynamics: {title:'工作室动态', path:'内容管理 / 动态'},
+  customPage: {title:'定制流程', path:'内容管理 / 定制流程'},
+  products: {title:'商品管理', path:'商城管理 / 商品'},
+  categories: {title:'分类字段', path:'商城管理 / 分类'},
+  orders: {title:'定制订单', path:'商城管理 / 订单'},
+  media: {title:'媒体库', path:'媒体 & 资产 / 媒体库'},
+  assets3d: {title:'3D 资产管理', path:'媒体 & 资产 / 3D 资产'},
+  contact: {title:'联系我们', path:'联系 & 平台 / 联系方式'},
+  social: {title:'第三方平台', path:'联系 & 平台 / 社交平台'},
+  admins: {title:'管理员账号', path:'系统 / 账号管理'},
+  exportImport: {title:'导入 / 导出', path:'系统 / 数据管理'},
+};
+
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  const page = document.getElementById('page-'+id);
+  if (page) page.classList.add('active');
+  const meta = PAGE_META[id] || {title:id, path:id};
+  document.getElementById('headerTitle').textContent = meta.title;
+  document.getElementById('headerPath').textContent = 'ShowCome CMS / ' + meta.path;
+  // find matching nav item
+  document.querySelectorAll('.nav-item').forEach(n => {
+    if (n.getAttribute('onclick') && n.getAttribute('onclick').includes("'"+id+"'")) n.classList.add('active');
+  });
+  // page-specific renders
+  if (id==='works') renderWorksTable();
+  if (id==='products') { populateProductCatFilter(); renderProductsTable(); }
+  if (id==='categories') renderCategoriesTables();
+  if (id==='testimonials') renderTestimonialsTable();
+  if (id==='dynamics') renderDynamicsTable();
+  if (id==='social') renderSocialTable();
+  if (id==='admins') renderAdminsTable();
+  if (id==='orders') renderOrdersTable();
+  if (id==='media') renderMediaGrid();
+  if (id==='assets3d') renderAssets3D();
+  if (id==='exportImport') updateDataSnapshot();
+  if (id==='hero') renderHeroStats();
+  if (id==='about') renderServicesList();
+  if (id==='customPage') renderCustomSteps();
+  if (id==='contact') { renderContactChips(); renderQrCodes(); }
+  if (id==='seo') updateSeoScore();
+}
+
+// ═══════════════════════════════════════════
+// POPULATE FORMS ON LOAD
+// ═══════════════════════════════════════════
+function populateAllForms() {
+  const s = CMS.site;
+  setVal('siteName', s.name); setVal('siteNameEn', s.nameEn);
+  setVal('pageTitle', s.pageTitle); setVal('slogan', s.slogan);
+  setVal('logoEmoji', s.logoEmoji); setVal('logoUrl', s.logoUrl||'');
+  setVal('faviconUrl', s.faviconUrl||''); setVal('footerCopy', s.footerCopy);
+  setVal('icp', s.icp||''); setVal('newsletterText', s.newsletterText||'');
+  setVal('customCss', s.customCss||'');
+  setCheck('navShowCta', s.navShowCta!==false);
+  setCheck('navShowCart', s.navShowCart!==false);
+  setCheck('navShowLogin', s.navShowLogin!==false);
+
+  const th = CMS.theme;
+  setVal('tc-bg', th.bg||'#0a0a0f'); syncColor('tc-bg','cp-bg');
+  setVal('tc-bg2', th.bg2||'#111118'); syncColor('tc-bg2','cp-bg2');
+  setVal('tc-accent', th.accent||'#7c3aed'); syncColor('tc-accent','cp-accent');
+  setVal('tc-accent2', th.accent2||'#06d6a0'); syncColor('tc-accent2','cp-accent2');
+  setVal('tc-accent3', th.accent3||'#f72585'); syncColor('tc-accent3','cp-accent3');
+  setVal('tc-text', th.text||'#e8e8f0'); syncColor('tc-text','cp-text');
+  setCheck('thCursor', th.cursor!==false); setCheck('thNoise', th.noise!==false);
+  setCheck('thParallax', th.parallax!==false); setCheck('thLoader', th.loader!==false);
+  setCheck('thReveal', th.reveal!==false); setCheck('th3D', th.d3!==false);
+  setVal('fontBrand', th.fontBrand||'Orbitron'); setVal('fontBody', th.fontBody||"'Noto Sans SC'");
+
+  const se = CMS.seo;
+  setVal('seoTitle', se.title); setVal('seoDesc', se.desc);
+  setVal('seoKeywords', se.keywords); setVal('seoCanonical', se.canonical||'');
+  setVal('ogTitle', se.ogTitle||''); setVal('ogDesc', se.ogDesc||'');
+  setVal('ogImage', se.ogImage||''); setVal('seoRobots', se.robots||'index,follow');
+  setVal('gaId', se.gaId||'');
+
+  const h = CMS.hero;
+  setVal('heroLine1', h.line1); setVal('heroLine2', h.line2); setVal('heroLine3', h.line3);
+  setVal('heroSubtitle', h.subtitle); setVal('heroBadge', h.badge);
+  setVal('heroBtnPrimary', h.btnPrimary); setVal('heroBtnSecondary', h.btnSecondary);
+  setVal('marqueeItems', h.marquee); setVal('hero3dParticles', h.particleCount||3000);
+
+  const ab = CMS.about;
+  setVal('aboutTag', ab.tag); setVal('aboutTitle1', ab.title1);
+  setVal('aboutTitle2', ab.title2); setVal('aboutDesc', ab.desc);
+
+  const cp = CMS.customPage;
+  setVal('customTag', cp.tag); setVal('customTitle1', cp.title1);
+  setVal('customTitle2', cp.title2); setVal('customDesc', cp.desc);
+  setVal('formTitle', cp.formTitle); setVal('formSubTitle', cp.formSubTitle);
+  setVal('customTypeOpts', cp.customTypeOpts); setVal('budgetOpts', cp.budgetOpts);
+
+  const co = CMS.contact;
+  setVal('contactEmail', co.email); setVal('contactWechat', co.wechat);
+  setVal('contactHours', co.hours); setVal('contactAddr', co.addr||'');
+
+  const f = CMS.flags||{};
+  setCheck('siteOnline', f.siteOnline!==false);
+  setCheck('shopOnline', f.shopOnline!==false);
+  setCheck('customOpen', f.customOpen!==false);
+
+  const d3 = CMS.d3Config||{};
+  setVal('a3dParticleCount', d3.particleCount||3000);
+  setVal('a3dRotateSpeed', d3.rotateSpeed||0.001);
+  setVal('a3dParticleSize', d3.particleSize||0.04);
+  setVal('a3dOpacity', d3.opacity||0.7);
+  setVal('a3dColors', d3.colors||'#7c3aed,#f72585,#06d6a0,#4cc9f0');
+  setCheck('a3dMouseInteract', d3.mouseInteract!==false);
+  setCheck('a3dShowWire', d3.showWire!==false);
+  setCheck('a3dShowRings', d3.showRings!==false);
+
+  updateSeoDescLen();
+}
+
+function setVal(id, v) { const el = document.getElementById(id); if(el) el.value = v!=null ? v : ''; }
+function setCheck(id, v) { const el = document.getElementById(id); if(el) el.checked = !!v; }
+function getVal(id) { return (document.getElementById(id)||{}).value || ''; }
+function getCheck(id) { return !!(document.getElementById(id)||{}).checked; }
+
+// ═══════════════════════════════════════════
+// PERSIST
+// ═══════════════════════════════════════════
+function persist() {
+  localStorage.setItem(CMS_KEY, JSON.stringify(CMS));
+  showSaveIndicator();
+}
+function saveAdmins() { localStorage.setItem(ADMIN_KEY, JSON.stringify(ADMINS)); }
+
+function showSaveIndicator() {
+  const el = document.getElementById('saveIndicator');
+  el.classList.add('show');
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.classList.remove('show'), 3000);
+}
+
+function saveAll() {
+  collectAllForms();
+  persist();
+  addLog('green', `${currentUser.username} 执行了完整保存并发布`);
+  toast('success', '✅ 保存并发布成功！前台内容已更新');
+}
+
+function collectAllForms() {
+  CMS.site = { ...CMS.site,
+    name: getVal('siteName'), nameEn: getVal('siteNameEn'),
+    pageTitle: getVal('pageTitle'), slogan: getVal('slogan'),
+    logoEmoji: getVal('logoEmoji'), logoUrl: getVal('logoUrl'),
+    faviconUrl: getVal('faviconUrl'), footerCopy: getVal('footerCopy'),
+    icp: getVal('icp'), newsletterText: getVal('newsletterText'),
+    customCss: getVal('customCss'),
+    navShowCta: getCheck('navShowCta'), navShowCart: getCheck('navShowCart'),
+    navShowLogin: getCheck('navShowLogin'),
+  };
+  CMS.theme = { ...CMS.theme,
+    bg: getVal('tc-bg'), bg2: getVal('tc-bg2'),
+    accent: getVal('tc-accent'), accent2: getVal('tc-accent2'),
+    accent3: getVal('tc-accent3'), text: getVal('tc-text'),
+    cursor: getCheck('thCursor'), noise: getCheck('thNoise'),
+    parallax: getCheck('thParallax'), loader: getCheck('thLoader'),
+    reveal: getCheck('thReveal'), d3: getCheck('th3D'),
+    fontBrand: getVal('fontBrand'), fontBody: getVal('fontBody'),
+  };
+  CMS.seo = {
+    title: getVal('seoTitle'), desc: getVal('seoDesc'),
+    keywords: getVal('seoKeywords'), canonical: getVal('seoCanonical'),
+    ogTitle: getVal('ogTitle'), ogDesc: getVal('ogDesc'),
+    ogImage: getVal('ogImage'), robots: getVal('seoRobots'), gaId: getVal('gaId'),
+  };
+  CMS.hero = { ...CMS.hero,
+    line1: getVal('heroLine1'), line2: getVal('heroLine2'), line3: getVal('heroLine3'),
+    subtitle: getVal('heroSubtitle'), badge: getVal('heroBadge'),
+    btnPrimary: getVal('heroBtnPrimary'), btnSecondary: getVal('heroBtnSecondary'),
+    marquee: getVal('marqueeItems'), particleCount: parseInt(getVal('hero3dParticles'))||3000,
+  };
+  CMS.about = { ...CMS.about,
+    tag: getVal('aboutTag'), title1: getVal('aboutTitle1'),
+    title2: getVal('aboutTitle2'), desc: getVal('aboutDesc'),
+  };
+  CMS.customPage = { ...CMS.customPage,
+    tag: getVal('customTag'), title1: getVal('customTitle1'),
+    title2: getVal('customTitle2'), desc: getVal('customDesc'),
+    formTitle: getVal('formTitle'), formSubTitle: getVal('formSubTitle'),
+    customTypeOpts: getVal('customTypeOpts'), budgetOpts: getVal('budgetOpts'),
+  };
+  CMS.contact = { ...CMS.contact,
+    email: getVal('contactEmail'), wechat: getVal('contactWechat'),
+    hours: getVal('contactHours'), addr: getVal('contactAddr'),
+  };
+  CMS.flags = { siteOnline: getCheck('siteOnline'), shopOnline: getCheck('shopOnline'), customOpen: getCheck('customOpen') };
+  CMS.d3Config = { particleCount: parseInt(getVal('a3dParticleCount'))||3000, rotateSpeed: parseFloat(getVal('a3dRotateSpeed'))||0.001, particleSize: parseFloat(getVal('a3dParticleSize'))||0.04, opacity: parseFloat(getVal('a3dOpacity'))||0.7, colors: getVal('a3dColors'), mouseInteract: getCheck('a3dMouseInteract'), showWire: getCheck('a3dShowWire'), showRings: getCheck('a3dShowRings') };
+}
+
+// ═══════════════════════════════════════════
+// SECTION SAVES
+// ═══════════════════════════════════════════
+function saveSiteConfig() { collectAllForms(); persist(); addLog('accent','站点基础设置已更新'); toast('success','站点配置已保存'); }
+function saveTheme() { collectAllForms(); persist(); addLog('accent','外观主题已更新'); toast('success','主题已应用'); }
+function saveSeo() { collectAllForms(); persist(); updateSeoScore(); addLog('accent','SEO设置已更新'); toast('success','SEO 设置已保存'); }
+function saveHero() { collectAllForms(); persist(); addLog('accent','首页Hero已更新'); toast('success','首页 Hero 已保存'); }
+function saveAbout() { collectAllForms(); persist(); addLog('accent','关于我们已更新'); toast('success','关于我们已保存'); }
+function saveCustomPage() { collectAllForms(); persist(); addLog('accent','定制流程已更新'); toast('success','定制流程已保存'); }
+function saveContact() { collectAllForms(); persist(); addLog('accent','联系信息已更新'); toast('success','联系信息已保存'); }
+function save3DConfig() { collectAllForms(); persist(); toast('success','3D 场景配置已保存'); }
+
+// ═══════════════════════════════════════════
+// DASHBOARD
+// ═══════════════════════════════════════════
+function refreshDashboard() {
+  document.getElementById('ds-works').textContent = CMS.works.filter(w=>w.status==='published').length + ' / ' + CMS.works.length;
+  document.getElementById('ds-products').textContent = CMS.products.filter(p=>p.status==='active').length;
+  document.getElementById('ds-dynamics').textContent = CMS.dynamics.length;
+  document.getElementById('ds-testimonials').textContent = CMS.testimonials.filter(t=>t.visible).length;
+  renderActivityLog();
+}
+
+function renderActivityLog() {
+  const logs = JSON.parse(localStorage.getItem(LOG_KEY)||'[]').slice(0,8);
+  const el = document.getElementById('activityLog');
+  if (!logs.length) { el.innerHTML = '<div class="empty-state" style="padding:30px 0"><div class="empty-icon" style="font-size:24px">📋</div><div>暂无操作记录</div></div>'; return; }
+  el.innerHTML = logs.map(l=>`
+    <div class="activity-item">
+      <div class="activity-dot ${l.color||'accent'}"></div>
+      <div>
+        <div class="activity-text">${l.text}</div>
+        <div class="activity-time">${new Date(l.time).toLocaleString('zh-CN')}</div>
+      </div>
+    </div>`).join('');
+}
+
+function addLog(color, text) {
+  const logs = JSON.parse(localStorage.getItem(LOG_KEY)||'[]');
+  logs.unshift({ color, text, time: new Date().toISOString() });
+  localStorage.setItem(LOG_KEY, JSON.stringify(logs.slice(0,50)));
+  if(document.getElementById('activityLog')) renderActivityLog();
+}
+
+// ═══════════════════════════════════════════
+// WORKS TABLE
+// ═══════════════════════════════════════════
+function renderWorksTable() {
+  const q = getVal('worksSearch').toLowerCase();
+  const ft = getVal('worksFilterType');
+  const rows = CMS.works.filter(w => {
+    const matchQ = !q || w.name.toLowerCase().includes(q);
+    const matchT = !ft || w.type === ft;
+    return matchQ && matchT;
+  });
+  document.getElementById('worksTableBody').innerHTML = rows.length ? rows.map(w=>`
+    <tr>
+      <td><span class="drag-handle" title="拖动排序">⠿</span></td>
+      <td><strong>${w.name}</strong></td>
+      <td><span class="badge badge-accent">${w.typeName||w.type}</span></td>
+      <td><span style="font-size:20px">${w.emoji||'🎨'}</span> <span class="color-preview" style="display:inline-block;width:16px;height:16px;border-radius:4px;background:${w.color||'#7c3aed'};vertical-align:middle;border:1px solid rgba(255,255,255,0.1)"></span></td>
+      <td>${w.featured ? '<span class="badge badge-green">精选</span>' : '<span class="badge badge-gray">否</span>'}</td>
+      <td>${statusBadge(w.status,'published','draft','hidden')}</td>
+      <td class="mono" style="font-size:11px">${w.likes||0} / ${w.views||0}</td>
+      <td><div class="td-actions">
+        <button class="btn btn-secondary btn-sm btn-icon" onclick="openWorkModal(${w.id})" title="编辑">✏️</button>
+        <button class="btn btn-danger btn-sm btn-icon" onclick="confirmDelete('work',${w.id})" title="删除">🗑️</button>
+      </div></td>
+    </tr>`).join('') : '<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--text2)">暂无作品数据</td></tr>';
+}
+
+function openWorkModal(id=null) {
+  editingId.work = id;
+  document.getElementById('workModalTitle').textContent = id ? '编辑作品' : '新增作品';
+  if (id) {
+    const w = CMS.works.find(x=>x.id===id);
+    if (!w) return;
+    setVal('wm-name',w.name); setVal('wm-type',w.type); setVal('wm-status',w.status||'published');
+    setVal('wm-color',w.color||'#7c3aed'); syncColor('wm-color','wm-cp');
+    setVal('wm-emoji',w.emoji||'🦊'); setVal('wm-likes',w.likes||0); setVal('wm-views',w.views||0);
+    setCheck('wm-featured',!!w.featured);
+    setVal('wm-cover',w.cover||''); setVal('wm-images',(w.images||[]).join('\n'));
+    setVal('wm-desc',w.desc||''); setVal('wm-date',w.date||'');
+    setVal('wm-material',w.material||''); setVal('wm-video',w.video||'');
+  } else {
+    ['wm-name','wm-cover','wm-images','wm-desc','wm-date','wm-material','wm-video'].forEach(id=>setVal(id,''));
+    setVal('wm-type','head'); setVal('wm-status','published');
+    setVal('wm-color','#7c3aed'); syncColor('wm-color','wm-cp');
+    setVal('wm-emoji','🦊'); setVal('wm-likes',0); setVal('wm-views',0);
+    setCheck('wm-featured',false);
+  }
+  openModal('workModal');
+}
+
+function saveWork() {
+  const name = getVal('wm-name');
+  if (!name) { toast('error','请填写作品名称'); return; }
+  const typeKey = getVal('wm-type');
+  const typeCat = CMS.workCategories.find(c=>c.key===typeKey);
+  const data = {
+    id: editingId.work || Date.now(), name,
+    type: typeKey, typeName: typeCat ? typeCat.name : typeKey,
+    status: getVal('wm-status'), color: getVal('wm-color'),
+    emoji: getVal('wm-emoji'), likes: parseInt(getVal('wm-likes'))||0,
+    views: parseInt(getVal('wm-views'))||0, featured: getCheck('wm-featured'),
+    cover: getVal('wm-cover'), images: getVal('wm-images').split('\n').filter(Boolean),
+    desc: getVal('wm-desc'), date: getVal('wm-date'),
+    material: getVal('wm-material'), video: getVal('wm-video'),
+  };
+  if (editingId.work) {
+    CMS.works = CMS.works.map(w => w.id===editingId.work ? data : w);
+    addLog('accent',`更新作品 "${name}"`);
+  } else {
+    CMS.works.push(data);
+    addLog('green',`新增作品 "${name}"`);
+  }
+  persist(); renderWorksTable(); refreshDashboard();
+  closeModal('workModal'); toast('success', `作品 "${name}" 已保存`);
+}
+
+// ═══════════════════════════════════════════
+// PRODUCTS TABLE
+// ═══════════════════════════════════════════
+function populateProductCatFilter() {
+  const sel = document.getElementById('productsFilterCat');
+  if (!sel) return;
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">全部分类</option>' +
+    CMS.productCategories.map(c=>`<option value="${c.key}" ${cur===c.key?'selected':''}>${c.icon} ${c.name}</option>`).join('');
+}
+
+function renderProductsTable() {
+  const q = getVal('productsSearch').toLowerCase();
+  const fc = getVal('productsFilterCat');
+  const rows = CMS.products.filter(p => {
+    const matchQ = !q || p.name.toLowerCase().includes(q);
+    const matchC = !fc || p.category === fc;
+    return matchQ && matchC;
+  });
+  const catMap = {};
+  CMS.productCategories.forEach(c => catMap[c.key] = c.name);
+  document.getElementById('productsTableBody').innerHTML = rows.length ? rows.map(p=>`
+    <tr>
+      <td><strong>${p.name}</strong></td>
+      <td><span class="badge badge-blue">${catMap[p.category]||p.category}</span></td>
+      <td><span style="font-size:18px">${p.emoji||'🎁'}</span></td>
+      <td class="mono" style="color:var(--green)">¥${(p.price||0).toLocaleString()}</td>
+      <td class="mono" style="color:var(--text2);text-decoration:line-through">${p.oldPrice?'¥'+p.oldPrice.toLocaleString():'-'}</td>
+      <td>${p.badge ? `<span class="badge badge-${p.badge==='new'?'green':p.badge==='hot'?'accent':'amber'}">${p.badge==='new'?'新品':p.badge==='hot'?'热销':'特惠'}</span>` : '-'}</td>
+      <td>${productStatusBadge(p.status)}</td>
+      <td><div class="td-actions">
+        <button class="btn btn-secondary btn-sm btn-icon" onclick="openProductModal(${p.id})">✏️</button>
+        <button class="btn btn-danger btn-sm btn-icon" onclick="confirmDelete('product',${p.id})">🗑️</button>
+      </div></td>
+    </tr>`).join('') : '<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--text2)">暂无商品</td></tr>';
+}
+
+function openProductModal(id=null) {
+  editingId.product = id;
+  document.getElementById('productModalTitle').textContent = id ? '编辑商品' : '新增商品';
+  const sel = document.getElementById('pm-category');
+  sel.innerHTML = CMS.productCategories.map(c=>`<option value="${c.key}">${c.icon} ${c.name}</option>`).join('');
+  if (id) {
+    const p = CMS.products.find(x=>x.id===id);
+    if (!p) return;
+    setVal('pm-name',p.name); setVal('pm-category',p.category); setVal('pm-status',p.status||'active');
+    setVal('pm-price',p.price||''); setVal('pm-oldprice',p.oldPrice||'');
+    setVal('pm-badge',p.badge||''); setVal('pm-stock',p.stock||0);
+    setVal('pm-color',p.color||'#7c3aed'); syncColor('pm-color','pm-cp');
+    setVal('pm-emoji',p.emoji||'🎁'); setVal('pm-cover',p.cover||'');
+    setVal('pm-images',(p.images||[]).join('\n'));
+    setVal('pm-desc',p.desc||'');
+    setVal('pm-specs',p.specs||'');
+  } else {
+    ['pm-name','pm-cover','pm-images','pm-desc','pm-specs'].forEach(i=>setVal(i,''));
+    setVal('pm-status','active'); setVal('pm-badge',''); setVal('pm-stock',0);
+    setVal('pm-color','#7c3aed'); syncColor('pm-color','pm-cp'); setVal('pm-emoji','🎁');
+  }
+  openModal('productModal');
+}
+
+function saveProduct() {
+  const name = getVal('pm-name');
+  const price = parseFloat(getVal('pm-price'));
+  if (!name || !price) { toast('error','请填写商品名称和价格'); return; }
+  const op = getVal('pm-oldprice');
+  const data = {
+    id: editingId.product || Date.now(), name,
+    category: getVal('pm-category'), status: getVal('pm-status'),
+    price, oldPrice: op ? parseFloat(op) : null,
+    badge: getVal('pm-badge')||null, stock: parseInt(getVal('pm-stock'))||0,
+    color: getVal('pm-color'), emoji: getVal('pm-emoji'),
+    cover: getVal('pm-cover'), images: getVal('pm-images').split('\n').filter(Boolean),
+    desc: getVal('pm-desc'), specs: getVal('pm-specs'),
+  };
+  if (editingId.product) {
+    CMS.products = CMS.products.map(p => p.id===editingId.product ? data : p);
+    addLog('accent',`更新商品 "${name}"`);
+  } else {
+    CMS.products.push(data);
+    addLog('green',`新增商品 "${name}"`);
+  }
+  persist(); renderProductsTable(); refreshDashboard();
+  closeModal('productModal'); toast('success', `商品 "${name}" 已保存`);
+}
+
+// ═══════════════════════════════════════════
+// CATEGORIES
+// ═══════════════════════════════════════════
+function renderCategoriesTables() {
+  renderCatTable('workCatsBody', CMS.workCategories, 'work');
+  renderCatTable('productCatsBody', CMS.productCategories, 'product');
+}
+
+function renderCatTable(tbodyId, cats, scope) {
+  document.getElementById(tbodyId).innerHTML = cats.map(c=>`
+    <tr>
+      <td style="font-size:20px">${c.icon}</td>
+      <td>${c.name}</td>
+      <td style="color:var(--text2)">${c.nameEn||''}</td>
+      <td><code style="font-size:11px;color:var(--accent);background:var(--accent-s);padding:2px 6px;border-radius:4px">${c.key}</code></td>
+      <td><div class="td-actions">
+        <button class="btn btn-secondary btn-sm btn-icon" onclick="editCat('${scope}',${c.id})">✏️</button>
+        <button class="btn btn-danger btn-sm btn-icon" onclick="confirmDelete('cat_${scope}',${c.id})">🗑️</button>
+      </div></td>
+    </tr>`).join('');
+}
+
+function openCatModal() {
+  editingId.cat = null;
+  ['cm-icon','cm-key','cm-name','cm-nameEn'].forEach(i=>setVal(i,''));
+  document.getElementById('catModalTitle').textContent = '新增分类';
+  openModal('catModal');
+}
+
+function editCat(scope, id) {
+  const arr = scope==='work' ? CMS.workCategories : CMS.productCategories;
+  const c = arr.find(x=>x.id===id);
+  if (!c) return;
+  editingId.cat = { scope, id };
+  document.getElementById('catModalTitle').textContent = '编辑分类';
+  setVal('cm-scope', scope); setVal('cm-icon',c.icon); setVal('cm-key',c.key);
+  setVal('cm-name',c.name); setVal('cm-nameEn',c.nameEn||'');
+  openModal('catModal');
+}
+
+function saveCategory() {
+  const scope = getVal('cm-scope');
+  const key = getVal('cm-key');
+  const name = getVal('cm-name');
+  if (!key || !name) { toast('error','请填写 Key 和名称'); return; }
+  const data = { id: editingId.cat?.id || Date.now(), icon: getVal('cm-icon'), key, name, nameEn: getVal('cm-nameEn') };
+  const arr = scope==='work' ? CMS.workCategories : CMS.productCategories;
+  if (editingId.cat) {
+    const idx = arr.findIndex(x=>x.id===editingId.cat.id);
+    if (idx>=0) arr[idx] = data;
+  } else {
+    arr.push(data);
+  }
+  persist(); renderCategoriesTables(); closeModal('catModal');
+  toast('success','分类已保存');
+}
+
+// ═══════════════════════════════════════════
+// TESTIMONIALS
+// ═══════════════════════════════════════════
+function renderTestimonialsTable() {
+  document.getElementById('testimonialsTableBody').innerHTML = CMS.testimonials.map(t=>`
+    <tr>
+      <td style="max-width:300px;"><div class="truncate" title="${t.text}">${t.text}</div></td>
+      <td><strong>${t.author}</strong></td>
+      <td style="color:var(--text2);font-size:12px">${t.role||''}</td>
+      <td>${'⭐'.repeat(t.stars||5)}</td>
+      <td><label class="toggle" style="transform:scale(0.85)"><input type="checkbox" ${t.visible?'checked':''} onchange="toggleTestimonialVisible(${t.id},this.checked)"><span class="toggle-slider"></span></label></td>
+      <td><div class="td-actions">
+        <button class="btn btn-secondary btn-sm btn-icon" onclick="openTestimonialModal(${t.id})">✏️</button>
+        <button class="btn btn-danger btn-sm btn-icon" onclick="confirmDelete('testimonial',${t.id})">🗑️</button>
+      </div></td>
+    </tr>`).join('');
+}
+
+function toggleTestimonialVisible(id, v) {
+  const t = CMS.testimonials.find(x=>x.id===id);
+  if (t) { t.visible = v; persist(); }
+}
+
+function openTestimonialModal(id=null) {
+  editingId.testimonial = id;
+  document.getElementById('testimonialModalTitle').textContent = id ? '编辑评价' : '添加评价';
+  if (id) {
+    const t = CMS.testimonials.find(x=>x.id===id);
+    if (!t) return;
+    setVal('tm-text',t.text); setVal('tm-author',t.author);
+    setVal('tm-role',t.role||''); setVal('tm-stars',t.stars||5);
+    setVal('tm-avatar',t.avatar||''); setCheck('tm-visible',t.visible!==false);
+  } else {
+    ['tm-text','tm-author','tm-role','tm-avatar'].forEach(i=>setVal(i,''));
+    setVal('tm-stars',5); setCheck('tm-visible',true);
+  }
+  openModal('testimonialModal');
+}
+
+function saveTestimonial() {
+  const text = getVal('tm-text'), author = getVal('tm-author');
+  if (!text || !author) { toast('error','请填写评价内容和客户昵称'); return; }
+  const data = { id: editingId.testimonial||Date.now(), text, author, role: getVal('tm-role'), stars: parseInt(getVal('tm-stars'))||5, avatar: getVal('tm-avatar'), visible: getCheck('tm-visible') };
+  if (editingId.testimonial) {
+    CMS.testimonials = CMS.testimonials.map(t=>t.id===editingId.testimonial?data:t);
+  } else {
+    CMS.testimonials.push(data);
+    addLog('green',`新增客户评价：${author}`);
+  }
+  persist(); renderTestimonialsTable(); refreshDashboard();
+  closeModal('testimonialModal'); toast('success','评价已保存');
+}
+
+// ═══════════════════════════════════════════
+// DYNAMICS
+// ═══════════════════════════════════════════
+function renderDynamicsTable() {
+  document.getElementById('dynamicsTableBody').innerHTML = CMS.dynamics.map(d=>`
+    <tr>
+      <td style="max-width:280px;"><div class="truncate"><strong>${d.title}</strong></div></td>
+      <td><span class="badge ${d.type==='video'?'badge-red':d.type==='photo'?'badge-accent':'badge-green'}">${d.typeName||d.type}</span></td>
+      <td class="mono" style="font-size:12px;color:var(--text2)">${d.date||''}</td>
+      <td>${d.featured?'<span class="badge badge-amber">精选</span>':'<span class="badge badge-gray">否</span>'}</td>
+      <td class="mono" style="font-size:11px">${d.likes||0} / ${d.comments||0}</td>
+      <td><div class="td-actions">
+        <button class="btn btn-secondary btn-sm btn-icon" onclick="openDynamicModal(${d.id})">✏️</button>
+        <button class="btn btn-danger btn-sm btn-icon" onclick="confirmDelete('dynamic',${d.id})">🗑️</button>
+      </div></td>
+    </tr>`).join('');
+}
+
+function openDynamicModal(id=null) {
+  editingId.dynamic = id;
+  document.getElementById('dynamicModalTitle').textContent = id ? '编辑动态' : '发布动态';
+  if (id) {
+    const d = CMS.dynamics.find(x=>x.id===id);
+    if (!d) return;
+    setVal('dm-type',d.type); setVal('dm-date',d.date||'');
+    setVal('dm-title',d.title); setVal('dm-excerpt',d.excerpt||'');
+    setVal('dm-cover',d.cover||''); setVal('dm-likes',d.likes||0);
+    setVal('dm-comments',d.comments||0); setCheck('dm-featured',!!d.featured);
+    document.getElementById('dm-content').innerHTML = d.content||'';
+  } else {
+    ['dm-title','dm-excerpt','dm-cover'].forEach(i=>setVal(i,''));
+    setVal('dm-type','article'); setVal('dm-date', new Date().toISOString().slice(0,10));
+    setVal('dm-likes',0); setVal('dm-comments',0); setCheck('dm-featured',false);
+    document.getElementById('dm-content').innerHTML = '';
+  }
+  openModal('dynamicModal');
+}
+
+function saveDynamic() {
+  const title = getVal('dm-title');
+  if (!title) { toast('error','请填写标题'); return; }
+  const typeKey = getVal('dm-type');
+  const typeNames = { video:'视频', photo:'图集', article:'文章' };
+  const data = {
+    id: editingId.dynamic||Date.now(), type: typeKey,
+    typeName: typeNames[typeKey]||typeKey,
+    title, date: getVal('dm-date'), excerpt: getVal('dm-excerpt'),
+    cover: getVal('dm-cover'), content: document.getElementById('dm-content').innerHTML,
+    likes: parseInt(getVal('dm-likes'))||0, comments: parseInt(getVal('dm-comments'))||0,
+    featured: getCheck('dm-featured'),
+  };
+  if (editingId.dynamic) {
+    CMS.dynamics = CMS.dynamics.map(d=>d.id===editingId.dynamic?data:d);
+  } else {
+    CMS.dynamics.unshift(data);
+    addLog('green',`发布动态 "${title}"`);
+  }
+  persist(); renderDynamicsTable(); refreshDashboard();
+  closeModal('dynamicModal'); toast('success',`动态 "${title}" 已发布`);
+}
+
+// ═══════════════════════════════════════════
+// SOCIAL
+// ═══════════════════════════════════════════
+function renderSocialTable() {
+  document.getElementById('socialTableBody').innerHTML = CMS.social.map(s=>`
+    <tr>
+      <td style="font-size:20px">${s.iconUrl ? `<img src="${s.iconUrl}" style="width:24px;height:24px;border-radius:6px">` : s.icon}</td>
+      <td><strong>${s.name}</strong></td>
+      <td class="mono" style="font-size:12px;color:var(--text2)">${s.handle||''}</td>
+      <td style="max-width:160px;"><a href="${s.url||'#'}" style="color:var(--blue);font-size:12px" class="truncate" target="_blank">${s.url||'-'}</a></td>
+      <td><label class="toggle" style="transform:scale(0.8)"><input type="checkbox" ${s.showFooter?'checked':''} onchange="toggleSocialFlag(${s.id},'showFooter',this.checked)"><span class="toggle-slider"></span></label></td>
+      <td><label class="toggle" style="transform:scale(0.8)"><input type="checkbox" ${s.showContact?'checked':''} onchange="toggleSocialFlag(${s.id},'showContact',this.checked)"><span class="toggle-slider"></span></label></td>
+      <td><div class="td-actions">
+        <button class="btn btn-secondary btn-sm btn-icon" onclick="openSocialModal(${s.id})">✏️</button>
+        <button class="btn btn-danger btn-sm btn-icon" onclick="confirmDelete('social',${s.id})">🗑️</button>
+      </div></td>
+    </tr>`).join('');
+}
+
+function toggleSocialFlag(id, flag, v) {
+  const s = CMS.social.find(x=>x.id===id);
+  if (s) { s[flag]=v; persist(); }
+}
+
+function openSocialModal(id=null) {
+  editingId.social = id;
+  document.getElementById('socialModalTitle').textContent = id ? '编辑平台' : '添加平台';
+  if (id) {
+    const s = CMS.social.find(x=>x.id===id);
+    if (!s) return;
+    setVal('sm-name',s.name); setVal('sm-icon',s.icon); setVal('sm-iconUrl',s.iconUrl||'');
+    setVal('sm-handle',s.handle||''); setVal('sm-url',s.url||''); setVal('sm-qr',s.qr||'');
+    setCheck('sm-footer',!!s.showFooter); setCheck('sm-contact',!!s.showContact);
+  } else {
+    ['sm-name','sm-icon','sm-iconUrl','sm-handle','sm-url','sm-qr'].forEach(i=>setVal(i,''));
+    setCheck('sm-footer',true); setCheck('sm-contact',true);
+  }
+  openModal('socialModal');
+}
+
+function saveSocial() {
+  const name = getVal('sm-name');
+  if (!name) { toast('error','请填写平台名称'); return; }
+  const data = { id: editingId.social||Date.now(), name, icon: getVal('sm-icon'), iconUrl: getVal('sm-iconUrl'), handle: getVal('sm-handle'), url: getVal('sm-url'), qr: getVal('sm-qr'), showFooter: getCheck('sm-footer'), showContact: getCheck('sm-contact') };
+  if (editingId.social) {
+    CMS.social = CMS.social.map(s=>s.id===editingId.social?data:s);
+  } else {
+    CMS.social.push(data);
+    addLog('accent',`添加平台 "${name}"`);
+  }
+  persist(); renderSocialTable(); closeModal('socialModal'); toast('success','平台信息已保存');
+}
+
+// ═══════════════════════════════════════════
+// ADMINS
+// ═══════════════════════════════════════════
+function renderAdminsTable() {
+  document.getElementById('adminsTableBody').innerHTML = ADMINS.map(a=>`
+    <tr>
+      <td><div class="user-avatar" style="display:inline-flex">${a.username[0].toUpperCase()}</div></td>
+      <td><strong>${a.username}</strong> ${a.username===currentUser.username?'<span class="badge badge-green">你</span>':''}</td>
+      <td><span class="badge ${a.role==='admin'?'badge-accent':a.role==='editor'?'badge-blue':'badge-gray'}">${{admin:'超级管理员',editor:'编辑员',viewer:'只读'}[a.role]||a.role}</span></td>
+      <td class="mono" style="font-size:11px;color:var(--text2)">${a.lastLogin ? new Date(a.lastLogin).toLocaleString('zh-CN') : '-'}</td>
+      <td>${a.active!==false ? '<span class="badge badge-green">正常</span>' : '<span class="badge badge-red">禁用</span>'}</td>
+      <td><div class="td-actions">
+        ${a.username!==currentUser.username ? `<button class="btn btn-danger btn-sm btn-icon" onclick="confirmDeleteAdmin('${a.username}')">🗑️</button>` : ''}
+        <button class="btn btn-secondary btn-sm btn-icon" onclick="toggleAdminStatus('${a.username}')" title="切换状态">🔄</button>
+      </div></td>
+    </tr>`).join('');
+}
+
+function openAdminModal() { openModal('adminModal'); ['am-username','am-password','am-password2'].forEach(i=>setVal(i,'')); }
+
+function saveAdmin() {
+  const u = getVal('am-username'), p = getVal('am-password'), p2 = getVal('am-password2');
+  if (!u||!p) { toast('error','请填写用户名和密码'); return; }
+  if (p!==p2) { toast('error','两次密码不一致'); return; }
+  if (ADMINS.find(a=>a.username===u)) { toast('error','用户名已存在'); return; }
+  ADMINS.push({ username:u, password:p, role:getVal('am-role'), lastLogin:null, active:true });
+  saveAdmins(); renderAdminsTable(); closeModal('adminModal');
+  addLog('accent',`新增管理员账号 "${u}"`);
+  toast('success',`管理员 "${u}" 已创建`);
+}
+
+function toggleAdminStatus(username) {
+  const a = ADMINS.find(x=>x.username===username);
+  if (a) { a.active = !a.active; saveAdmins(); renderAdminsTable(); toast('info',`账号 "${username}" 状态已更新`); }
+}
+
+function confirmDeleteAdmin(username) {
+  confirm2('确认删除账号', `确定要删除管理员账号 "${username}" 吗？此操作不可恢复。`, () => {
+    ADMINS = ADMINS.filter(a=>a.username!==username);
+    saveAdmins(); renderAdminsTable(); toast('success','账号已删除');
+  });
+}
+
+// ═══════════════════════════════════════════
+// MEDIA
+// ═══════════════════════════════════════════
+function renderMediaGrid() {
+  const q = getVal('mediaSearch').toLowerCase();
+  const ft = getVal('mediaFilter');
+  const items = (CMS.media||[]).filter(m => {
+    const matchQ = !q || m.name.toLowerCase().includes(q);
+    const matchT = !ft || m.type === ft;
+    return matchQ && matchT;
+  });
+  document.getElementById('mediaCount').textContent = `共 ${items.length} 项`;
+  const grid = document.getElementById('mediaGrid');
+  if (!items.length) {
+    grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon">🗂️</div><div class="empty-title">暂无媒体文件</div><div class="empty-desc">添加图片、视频或 3D 模型资源</div></div>';
+    return;
+  }
+  grid.innerHTML = items.map(m=>`
+    <div class="media-item" onclick="selectMedia(${m.id})">
+      <div class="media-thumb">
+        ${m.thumb ? `<img src="${m.thumb}" onerror="this.style.display='none'">` : ''}
+        <span style="${m.thumb?'display:none':'font-size:28px'}">${mediaIcon(m.type)}</span>
+      </div>
+      <div class="media-info">
+        <div class="media-name" title="${m.name}">${m.name}</div>
+        <div class="media-meta">${m.type} · ${m.size||'-'}</div>
+      </div>
+    </div>`).join('');
+}
+
+function mediaIcon(t) { return {image:'🖼️',video:'🎬',audio:'🎵',model:'🧊'}[t]||'📄'; }
+
+function triggerMediaUpload() { document.getElementById('mediaFileInput').click(); }
+function openMediaUpload() { document.getElementById('mediaFileInput').click(); }
+
+function handleMediaFiles(files) {
+  for (const f of files) {
+    const type = f.type.startsWith('image') ? 'image' : f.type.startsWith('video') ? 'video' : f.type.startsWith('audio') ? 'audio' : 'model';
+    const item = { id: Date.now()+Math.random(), name: f.name, type, size: formatBytes(f.size), thumb:'', url:'' };
+    // In production: upload to CDN. For demo: use object URL
+    if (type==='image') { const r=new FileReader(); r.onload=e=>{item.thumb=e.target.result;persist();renderMediaGrid();}; r.readAsDataURL(f); }
+    CMS.media = CMS.media || [];
+    CMS.media.push(item);
+    addLog('green',`上传媒体文件 "${f.name}"`);
+  }
+  persist(); renderMediaGrid();
+  toast('success',`已添加 ${files.length} 个文件（演示模式，实际需对接 CDN）`);
+}
+
+function handleMediaDrop(e) {
+  e.preventDefault();
+  document.getElementById('mediaDropZone').classList.remove('dragover');
+  if (e.dataTransfer.files.length) handleMediaFiles(e.dataTransfer.files);
+}
+
+function selectMedia(id) {
+  const m = (CMS.media||[]).find(x=>x.id===id);
+  if (!m) return;
+  // copy URL to clipboard
+  const url = m.url || m.thumb || `[${m.name}]`;
+  navigator.clipboard?.writeText(url).then(()=>toast('info',`已复制 URL: ${url.slice(0,40)}...`));
+}
+
+function formatBytes(b) {
+  if (b<1024) return b+'B';
+  if (b<1024*1024) return (b/1024).toFixed(1)+'KB';
+  return (b/1024/1024).toFixed(1)+'MB';
+}
+
+// ═══════════════════════════════════════════
+// 3D ASSETS
+// ═══════════════════════════════════════════
+function renderAssets3D() {
+  const grid = document.getElementById('assets3dGrid');
+  const empty = document.getElementById('assets3dEmpty');
+  const assets = CMS.assets3d||[];
+  if (!assets.length) { grid.innerHTML=''; empty.style.display='block'; return; }
+  empty.style.display='none';
+  grid.innerHTML = assets.map(a=>`
+    <div class="asset-3d-card">
+      <div class="asset-3d-preview">
+        <div class="asset-type-badge">${a.scene||'scene'}</div>
+        ${a.preview ? `<img src="${a.preview}" style="width:100%;height:100%;object-fit:cover">` : `<span>${a.emoji||'🧊'}</span>`}
+      </div>
+      <div class="asset-3d-info">
+        <div class="asset-3d-name">${a.name}</div>
+        <div class="asset-3d-meta">${a.desc||'无描述'}</div>
+        <div style="display:flex;gap:6px;margin-top:8px">
+          <button class="btn btn-secondary btn-sm" onclick="edit3DAsset(${a.id})" style="flex:1">编辑</button>
+          <button class="btn btn-danger btn-sm btn-icon" onclick="confirmDelete('asset3d',${a.id})">🗑️</button>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+function open3DAssetModal(id=null) {
+  editingId.asset3d = id;
+  if (id) {
+    const a = (CMS.assets3d||[]).find(x=>x.id===id);
+    if (!a) return;
+    setVal('a3m-name',a.name); setVal('a3m-scene',a.scene||'hero');
+    setVal('a3m-url',a.url||''); setVal('a3m-preview',a.preview||'');
+    setVal('a3m-emoji',a.emoji||'🧊'); setVal('a3m-desc',a.desc||'');
+  } else {
+    ['a3m-name','a3m-url','a3m-preview','a3m-desc'].forEach(i=>setVal(i,''));
+    setVal('a3m-emoji','🧊'); setVal('a3m-scene','hero');
+  }
+  openModal('asset3dModal');
+}
+function edit3DAsset(id) { open3DAssetModal(id); }
+
+function save3DAsset() {
+  const name = getVal('a3m-name');
+  if (!name) { toast('error','请填写资产名称'); return; }
+  const data = { id: editingId.asset3d||Date.now(), name, scene: getVal('a3m-scene'), url: getVal('a3m-url'), preview: getVal('a3m-preview'), emoji: getVal('a3m-emoji'), desc: getVal('a3m-desc') };
+  CMS.assets3d = CMS.assets3d||[];
+  if (editingId.asset3d) {
+    CMS.assets3d = CMS.assets3d.map(a=>a.id===editingId.asset3d?data:a);
+  } else {
+    CMS.assets3d.push(data);
+    addLog('accent',`添加3D资产 "${name}"`);
+  }
+  persist(); renderAssets3D(); closeModal('asset3dModal'); toast('success','3D 资产已保存');
+}
+
+// ═══════════════════════════════════════════
+// HERO STATS
+// ═══════════════════════════════════════════
+function renderHeroStats() {
+  const cont = document.getElementById('heroStats');
+  const stats = CMS.hero.stats || [];
+  cont.innerHTML = stats.map((s,i)=>`
+    <div style="display:grid;grid-template-columns:1fr 80px 120px auto;gap:8px;align-items:center;margin-bottom:8px">
+      <input type="text" value="${s.label||''}" onchange="updateHeroStat(${i},'label',this.value)" placeholder="标签" style="background:var(--bg4);border:1px solid var(--border2);border-radius:var(--radius);padding:8px 12px;color:var(--text)">
+      <input type="number" value="${s.value||0}" onchange="updateHeroStat(${i},'value',this.value)" placeholder="数值" style="background:var(--bg4);border:1px solid var(--border2);border-radius:var(--radius);padding:8px 12px;color:var(--text)">
+      <input type="text" value="${s.suffix||''}" onchange="updateHeroStat(${i},'suffix',this.value)" placeholder="后缀(+)" style="background:var(--bg4);border:1px solid var(--border2);border-radius:var(--radius);padding:8px 12px;color:var(--text)">
+      <button class="btn btn-danger btn-sm btn-icon" onclick="removeHeroStat(${i})">🗑️</button>
+    </div>`).join('');
+}
+
+function updateHeroStat(i, key, v) {
+  if (!CMS.hero.stats[i]) return;
+  CMS.hero.stats[i][key] = key==='value' ? parseInt(v)||0 : v;
+}
+
+function addHeroStat() {
+  CMS.hero.stats = CMS.hero.stats||[];
+  CMS.hero.stats.push({value:100,suffix:'+',label:'新标签'});
+  renderHeroStats();
+}
+
+function removeHeroStat(i) {
+  CMS.hero.stats.splice(i,1);
+  renderHeroStats();
+}
+
+// ═══════════════════════════════════════════
+// ABOUT SERVICES
+// ═══════════════════════════════════════════
+function renderServicesList() {
+  const cont = document.getElementById('servicesList');
+  const services = CMS.about.services||[];
+  cont.innerHTML = services.map((s,i)=>`
+    <div style="display:grid;grid-template-columns:50px 1fr auto;gap:8px;margin-bottom:8px;align-items:start">
+      <input type="text" value="${s.icon||''}" onchange="updateService(${i},'icon',this.value)" placeholder="🎨" style="background:var(--bg4);border:1px solid var(--border2);border-radius:var(--radius);padding:8px;color:var(--text);font-size:18px;text-align:center">
+      <div>
+        <input type="text" value="${s.title||''}" onchange="updateService(${i},'title',this.value)" placeholder="服务名称" style="background:var(--bg4);border:1px solid var(--border2);border-radius:var(--radius);padding:8px 12px;color:var(--text);width:100%;margin-bottom:6px">
+        <textarea onchange="updateService(${i},'desc',this.value)" placeholder="服务描述" rows="2" style="background:var(--bg4);border:1px solid var(--border2);border-radius:var(--radius);padding:8px 12px;color:var(--text);width:100%;resize:none;font-family:var(--font-ui);font-size:13px">${s.desc||''}</textarea>
+      </div>
+      <button class="btn btn-danger btn-sm btn-icon" onclick="removeService(${i})" style="margin-top:0">🗑️</button>
+    </div>`).join('');
+}
+
+function updateService(i, key, v) {
+  if (CMS.about.services[i]) CMS.about.services[i][key] = v;
+}
+function addService() {
+  CMS.about.services = CMS.about.services||[];
+  CMS.about.services.push({icon:'⭐',title:'新服务',desc:'服务描述...'});
+  renderServicesList();
+}
+function removeService(i) { CMS.about.services.splice(i,1); renderServicesList(); }
+
+// ═══════════════════════════════════════════
+// CUSTOM STEPS
+// ═══════════════════════════════════════════
+function renderCustomSteps() {
+  const cont = document.getElementById('customSteps');
+  const steps = CMS.customPage.steps||[];
+  cont.innerHTML = steps.map((s,i)=>`
+    <div style="display:grid;grid-template-columns:50px 1fr auto;gap:8px;margin-bottom:12px;align-items:start;background:var(--bg4);padding:12px;border-radius:var(--radius);border:1px solid var(--border)">
+      <div style="text-align:center">
+        <div style="font-size:10px;color:var(--text2);margin-bottom:4px">步骤</div>
+        <input type="text" value="${s.num||String(i+1).padStart(2,'0')}" onchange="updateStep(${i},'num',this.value)" style="background:transparent;border:1px solid var(--border2);border-radius:var(--radius);padding:6px;color:var(--accent);font-family:var(--font-brand);font-size:12px;text-align:center;width:100%">
+      </div>
+      <div>
+        <input type="text" value="${s.title||''}" onchange="updateStep(${i},'title',this.value)" placeholder="步骤标题" style="background:var(--bg4);border:1px solid var(--border2);border-radius:var(--radius);padding:8px 12px;color:var(--text);width:100%;margin-bottom:6px">
+        <textarea onchange="updateStep(${i},'desc',this.value)" placeholder="步骤描述" rows="2" style="background:var(--bg4);border:1px solid var(--border2);border-radius:var(--radius);padding:8px 12px;color:var(--text);width:100%;resize:none;font-family:var(--font-ui);font-size:13px">${s.desc||''}</textarea>
+      </div>
+      <button class="btn btn-danger btn-sm btn-icon" onclick="removeStep(${i})">🗑️</button>
+    </div>`).join('');
+}
+
+function updateStep(i, key, v) { if(CMS.customPage.steps[i]) CMS.customPage.steps[i][key]=v; }
+function addCustomStep() {
+  const n = (CMS.customPage.steps||[]).length+1;
+  CMS.customPage.steps = CMS.customPage.steps||[];
+  CMS.customPage.steps.push({num:String(n).padStart(2,'0'),title:'新步骤',desc:'步骤描述...'});
+  renderCustomSteps();
+}
+function removeStep(i) { CMS.customPage.steps.splice(i,1); renderCustomSteps(); }
+
+// ═══════════════════════════════════════════
+// CONTACT CHIPS & QR CODES
+// ═══════════════════════════════════════════
+function renderContactChips() {
+  const chips = CMS.contact.chips||[];
+  document.getElementById('contactChips').innerHTML = chips.map((c,i)=>`
+    <div style="display:grid;grid-template-columns:50px 1fr 1fr auto;gap:8px;margin-bottom:8px;align-items:center">
+      <input type="text" value="${c.icon||''}" onchange="updateChip(${i},'icon',this.value)" style="background:var(--bg4);border:1px solid var(--border2);border-radius:var(--radius);padding:8px;color:var(--text);font-size:18px;text-align:center">
+      <input type="text" value="${c.label||''}" onchange="updateChip(${i},'label',this.value)" placeholder="显示名称" style="background:var(--bg4);border:1px solid var(--border2);border-radius:var(--radius);padding:8px 12px;color:var(--text)">
+      <input type="text" value="${c.url||''}" onchange="updateChip(${i},'url',this.value)" placeholder="链接URL" style="background:var(--bg4);border:1px solid var(--border2);border-radius:var(--radius);padding:8px 12px;color:var(--text)">
+      <button class="btn btn-danger btn-sm btn-icon" onclick="removeChip(${i})">🗑️</button>
+    </div>`).join('');
+}
+
+function updateChip(i,k,v){if(CMS.contact.chips[i])CMS.contact.chips[i][k]=v;}
+function addContactChip(){CMS.contact.chips=CMS.contact.chips||[];CMS.contact.chips.push({icon:'💬',label:'新联系方式',url:'#'});renderContactChips();}
+function removeChip(i){CMS.contact.chips.splice(i,1);renderContactChips();}
+
+function renderQrCodes() {
+  const qrs = CMS.contact.qrCodes||[];
+  document.getElementById('qrCodes').innerHTML = qrs.map((q,i)=>`
+    <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;margin-bottom:8px;align-items:center;background:var(--bg4);padding:12px;border-radius:var(--radius);border:1px solid var(--border)">
+      <input type="text" value="${q.label||''}" onchange="updateQr(${i},'label',this.value)" placeholder="二维码名称" style="background:var(--bg3);border:1px solid var(--border2);border-radius:var(--radius);padding:8px 12px;color:var(--text)">
+      <input type="text" value="${q.url||''}" onchange="updateQr(${i},'url',this.value)" placeholder="图片URL" style="background:var(--bg3);border:1px solid var(--border2);border-radius:var(--radius);padding:8px 12px;color:var(--text)">
+      <button class="btn btn-danger btn-sm btn-icon" onclick="removeQr(${i})">🗑️</button>
+      ${q.url?`<div style="grid-column:1/-1"><img src="${q.url}" style="height:60px;border-radius:var(--radius)" onerror="this.style.display='none'"></div>`:''}
+    </div>`).join('');
+}
+
+function updateQr(i,k,v){if(CMS.contact.qrCodes[i])CMS.contact.qrCodes[i][k]=v;}
+function addQrCode(){CMS.contact.qrCodes=CMS.contact.qrCodes||[];CMS.contact.qrCodes.push({label:'新二维码',url:''});renderQrCodes();}
+function removeQr(i){CMS.contact.qrCodes.splice(i,1);renderQrCodes();}
+
+// ═══════════════════════════════════════════
+// ORDERS (demo)
+// ═══════════════════════════════════════════
+function renderOrdersTable() {
+  const orders = JSON.parse(localStorage.getItem('showcomefu_orders')||'[]');
+  document.getElementById('ordersTableBody').innerHTML = orders.length ?
+    orders.map(o=>`
+      <tr>
+        <td class="mono" style="font-size:11px;color:var(--text2)">${new Date(o.time||Date.now()).toLocaleString('zh-CN')}</td>
+        <td>${o.nickname||'-'}</td>
+        <td>${o.contact||'-'}</td>
+        <td>${o.type||'-'}</td>
+        <td>${o.budget||'-'}</td>
+        <td><span class="badge ${o.status==='contacted'?'badge-green':o.status==='done'?'badge-blue':'badge-amber'}">${{new:'待处理',contacted:'已联系',done:'已完成'}[o.status||'new']||'待处理'}</span></td>
+        <td style="max-width:160px;font-size:12px;color:var(--text2)" class="truncate">${o.note||'-'}</td>
+        <td><select onchange="updateOrderStatus('${o.id}',this.value)" style="background:var(--bg4);border:1px solid var(--border);border-radius:var(--radius);padding:4px 8px;color:var(--text);font-size:11px">
+          <option value="new" ${o.status==='new'||!o.status?'selected':''}>待处理</option>
+          <option value="contacted" ${o.status==='contacted'?'selected':''}>已联系</option>
+          <option value="done" ${o.status==='done'?'selected':''}>已完成</option>
+        </select></td>
+      </tr>`).join('') :
+    '<tr><td colspan="8" style="text-align:center;padding:60px;color:var(--text2)"><div style="font-size:32px;margin-bottom:12px">📦</div><div>暂无定制订单</div><div style="font-size:12px;margin-top:6px;color:var(--text3)">前台提交的定制申请将显示在这里</div></td></tr>';
+}
+
+function updateOrderStatus(id, status) {
+  const orders = JSON.parse(localStorage.getItem('showcomefu_orders')||'[]');
+  const o = orders.find(x=>x.id===id);
+  if (o) { o.status = status; localStorage.setItem('showcomefu_orders', JSON.stringify(orders)); toast('success','订单状态已更新'); }
+}
+
+function exportOrders() {
+  const orders = JSON.parse(localStorage.getItem('showcomefu_orders')||'[]');
+  if (!orders.length) { toast('error','暂无订单数据'); return; }
+  const csv = ['时间,昵称,联系方式,类型,预算,状态'].concat(
+    orders.map(o=>[new Date(o.time).toLocaleString(),o.nickname,o.contact,o.type,o.budget,o.status||'new'].join(','))
+  ).join('\n');
+  downloadText(csv, 'orders.csv', 'text/csv');
+  toast('success','订单数据已导出');
+}
+
+// ═══════════════════════════════════════════
+// EXPORT / IMPORT
+// ═══════════════════════════════════════════
+function exportData() {
+  const data = JSON.stringify(CMS, null, 2);
+  downloadText(data, 'showcomefu-cms-backup.json', 'application/json');
+  toast('success','数据已导出');
+}
+
+function importData(input) {
+  const f = input.files[0];
+  if (!f) return;
+  const r = new FileReader();
+  r.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      confirm2('确认导入', '导入将覆盖当前所有 CMS 数据，确定继续？', () => {
+        CMS = deepMerge(DEFAULT_CMS, data);
+        persist(); populateAllForms(); refreshDashboard();
+        addLog('amber','从文件导入CMS数据');
+        toast('success','数据导入成功！'); updateDataSnapshot();
+      });
+    } catch(err) { toast('error','JSON 文件格式错误'); }
+  };
+  r.readAsText(f);
+}
+
+function resetAllData() {
+  confirm2('重置所有数据', '⚠️ 此操作将清除所有 CMS 配置并恢复默认数据，无法撤销！', () => {
+    CMS = JSON.parse(JSON.stringify(DEFAULT_CMS));
+    persist(); populateAllForms(); refreshDashboard();
+    addLog('red','重置所有CMS数据为默认值');
+    toast('info','数据已重置为默认值');
+  });
+}
+
+function updateDataSnapshot() {
+  const snap = document.getElementById('dataSnapshot');
+  if (!snap) return;
+  snap.textContent = JSON.stringify({ works: CMS.works.length+'条', products: CMS.products.length+'条', testimonials: CMS.testimonials.length+'条', dynamics: CMS.dynamics.length+'条', social: CMS.social.length+'条', media: (CMS.media||[]).length+'条', }, null, 2);
+}
+
+function downloadText(text, filename, mime) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], {type:mime}));
+  a.download = filename; a.click();
+}
+
+// ═══════════════════════════════════════════
+// COLOR HELPERS
+// ═══════════════════════════════════════════
+function syncColor(inputId, previewId) {
+  const v = getVal(inputId);
+  const el = document.getElementById(previewId);
+  if (el && v) el.style.background = v;
+}
+function syncColorPicker(pickerId, inputId, previewId) {
+  const v = document.getElementById(pickerId)?.value;
+  setVal(inputId, v);
+  syncColor(inputId, previewId);
+}
+function triggerColor(pickerId) {
+  document.getElementById(pickerId)?.click();
+}
+
+function applyPreset(name) {
+  const presets = {
+    purple: { bg:'#0a0a0f', bg2:'#111118', accent:'#7c3aed', accent2:'#06d6a0', accent3:'#f72585', text:'#e8e8f0' },
+    blue: { bg:'#070b14', bg2:'#0d1220', accent:'#3b82f6', accent2:'#06d6a0', accent3:'#8b5cf6', text:'#e8f4f8' },
+    green: { bg:'#070f0a', bg2:'#0d1610', accent:'#10b981', accent2:'#f59e0b', accent3:'#ec4899', text:'#e8f5ee' },
+    red: { bg:'#100808', bg2:'#180d0d', accent:'#ef4444', accent2:'#f59e0b', accent3:'#7c3aed', text:'#f8e8e8' },
+    mono: { bg:'#0a0a0a', bg2:'#111111', accent:'#ffffff', accent2:'#888888', accent3:'#cccccc', text:'#f0f0f0' },
+  };
+  const p = presets[name];
+  if (!p) return;
+  Object.entries(p).forEach(([k,v]) => {
+    const ids = { bg:['tc-bg','cp-bg'], bg2:['tc-bg2','cp-bg2'], accent:['tc-accent','cp-accent'], accent2:['tc-accent2','cp-accent2'], accent3:['tc-accent3','cp-accent3'], text:['tc-text','cp-text'] };
+    const [iId, pId] = ids[k];
+    setVal(iId, v); syncColor(iId, pId);
+  });
+  toast('info',`已应用预设主题`);
+}
+
+function resetTheme() { applyPreset('purple'); }
+
+// ═══════════════════════════════════════════
+// SEO SCORE
+// ═══════════════════════════════════════════
+function updateSeoDescLen() {
+  const desc = getVal('seoDesc');
+  const el = document.getElementById('seoDescLen');
+  if (el) el.textContent = desc.length;
+}
+document.getElementById('seoDesc')?.addEventListener('input', updateSeoDescLen);
+
+function updateSeoScore() {
+  updateSeoDescLen();
+  const title = getVal('seoTitle');
+  const desc = getVal('seoDesc');
+  const kw = getVal('seoKeywords');
+  const ogImg = getVal('ogImage');
+  const checks = [
+    { ok: title.length >= 20 && title.length <= 60, label: `页面标题长度（${title.length}字）${title.length>=20&&title.length<=60?'✓':'建议20-60字'}` },
+    { ok: desc.length >= 80 && desc.length <= 160, label: `描述长度（${desc.length}字）${desc.length>=80&&desc.length<=160?'✓':'建议80-160字'}` },
+    { ok: kw.length > 0, label: kw.length > 0 ? 'Keywords 已填写 ✓' : '建议填写 Keywords' },
+    { ok: !!ogImg, label: ogImg ? 'OG 图片已设置 ✓' : '建议设置 OG 分享图' },
+    { ok: getVal('seoCanonical').startsWith('https'), label: getVal('seoCanonical').startsWith('https') ? 'Canonical URL 已设置 ✓' : '建议设置 Canonical URL' },
+  ];
+  const score = Math.round(checks.filter(c=>c.ok).length / checks.length * 100);
+  const ring = document.getElementById('seoRing');
+  const scoreNum = document.getElementById('seoScoreNum');
+  if (ring) ring.style.setProperty('--pct', `${score * 3.6}deg`);
+  if (scoreNum) scoreNum.textContent = score;
+  const checksEl = document.getElementById('seoChecks');
+  if (checksEl) checksEl.innerHTML = checks.map(c=>`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)"><span style="color:${c.ok?'var(--green)':'var(--amber)'}">${c.ok?'✅':'⚠️'}</span><span style="color:${c.ok?'var(--text)':'var(--text2)'}">${c.label}</span></div>`).join('');
+}
+
+// ═══════════════════════════════════════════
+// RICHTEXT
+// ═══════════════════════════════════════════
+function execRich(cmd) { document.execCommand(cmd, false, null); }
+function insertLink() {
+  const url = prompt('请输入链接地址：', 'https://');
+  if (url) document.execCommand('createLink', false, url);
+}
+
+// ═══════════════════════════════════════════
+// MODAL / CONFIRM HELPERS
+// ═══════════════════════════════════════════
+function openModal(id) { document.getElementById(id)?.classList.add('open'); }
+function closeModal(id) { document.getElementById(id)?.classList.remove('open'); }
+
+document.querySelectorAll('.modal-backdrop').forEach(el => {
+  el.addEventListener('click', e => { if(e.target===el) el.classList.remove('open'); });
+});
+
+function confirmDelete(type, id) {
+  const labels = { work:'作品', product:'商品', testimonial:'评价', dynamic:'动态', social:'平台', cat_work:'作品分类', cat_product:'商品分类', asset3d:'3D资产' };
+  confirm2('确认删除', `确定要删除这条${labels[type]||type}记录吗？此操作不可撤销。`, () => {
+    if (type==='work') CMS.works = CMS.works.filter(x=>x.id!==id);
+    else if (type==='product') CMS.products = CMS.products.filter(x=>x.id!==id);
+    else if (type==='testimonial') CMS.testimonials = CMS.testimonials.filter(x=>x.id!==id);
+    else if (type==='dynamic') CMS.dynamics = CMS.dynamics.filter(x=>x.id!==id);
+    else if (type==='social') CMS.social = CMS.social.filter(x=>x.id!==id);
+    else if (type==='cat_work') CMS.workCategories = CMS.workCategories.filter(x=>x.id!==id);
+    else if (type==='cat_product') CMS.productCategories = CMS.productCategories.filter(x=>x.id!==id);
+    else if (type==='asset3d') CMS.assets3d = (CMS.assets3d||[]).filter(x=>x.id!==id);
+    persist(); addLog('red',`删除了一条${labels[type]||type}记录`);
+    // re-render current page
+    const active = document.querySelector('.page.active');
+    if (active) showPage(active.id.replace('page-',''));
+    refreshDashboard(); toast('success','已删除');
+  });
+}
+
+function confirm2(title, msg, onConfirm) {
+  document.getElementById('confirmTitle').textContent = title;
+  document.getElementById('confirmMsg').textContent = msg;
+  document.getElementById('confirmBtn').onclick = () => { closeModal('confirmDialog'); onConfirm(); };
+  openModal('confirmDialog');
+}
+
+// ═══════════════════════════════════════════
+// STATUS BADGE HELPERS
+// ═══════════════════════════════════════════
+function statusBadge(v, pub='published', draft='draft', hide='hidden') {
+  if (v===pub) return '<span class="badge badge-green">已发布</span>';
+  if (v===draft) return '<span class="badge badge-amber">草稿</span>';
+  return '<span class="badge badge-gray">隐藏</span>';
+}
+function productStatusBadge(v) {
+  if (v==='active') return '<span class="badge badge-green">上架</span>';
+  if (v==='soldout') return '<span class="badge badge-red">售罄</span>';
+  return '<span class="badge badge-gray">下架</span>';
+}
+
+// ═══════════════════════════════════════════
+// TOAST
+// ═══════════════════════════════════════════
+function toast(type, msg) {
+  const icons = { success:'✓', error:'✕', info:'ℹ' };
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  t.innerHTML = `<span class="toast-icon">${icons[type]||'•'}</span><span>${msg}</span>`;
+  document.getElementById('toastContainer').appendChild(t);
+  setTimeout(() => t.remove(), 4000);
+}
+
+// ═══════════════════════════════════════════
+// FRONTEND PREVIEW
+// ═══════════════════════════════════════════
+function openFrontend() {
+  collectAllForms();
+  persist();
+  window.open('index.html', '_blank');
+}
+
+// ═══════════════════════════════════════════
+// KEYBOARD SHORTCUTS
+// ═══════════════════════════════════════════
+document.addEventListener('keydown', e => {
+  if ((e.metaKey||e.ctrlKey) && e.key==='s') { e.preventDefault(); saveAll(); }
+  if (e.key==='Escape') document.querySelectorAll('.modal-backdrop.open').forEach(m=>m.classList.remove('open'));
+});
+
+// ═══════════════════════════════════════════
+// BOOT
+// ═══════════════════════════════════════════
+init();
+</script>
+</body>
+</html>
