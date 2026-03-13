@@ -1,0 +1,135 @@
+name: 🚀 ShowCome 自动部署
+
+# 触发条件：推送到 main 分支时自动部署
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:  # 支持手动触发
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false  # 部署不中断
+
+jobs:
+  deploy:
+    name: 部署到生产服务器
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      # ── 1. 拉取代码 ──────────────────────────────────────────────────────
+      - name: 📥 检出代码
+        uses: actions/checkout@v4
+
+      # ── 2. 语法验证 ──────────────────────────────────────────────────────
+      - name: 🔍 验证 HTML 文件
+        run: |
+          [ -f index.html ] && echo "✓ index.html 存在" || { echo "✗ index.html 缺失"; exit 1; }
+          [ -f admin.html ] && echo "✓ admin.html 存在" || { echo "✗ admin.html 缺失"; exit 1; }
+          # 检查文件大小（应大于 50KB）
+          INDEX_SIZE=$(stat -c%s index.html)
+          ADMIN_SIZE=$(stat -c%s admin.html)
+          echo "  index.html: ${INDEX_SIZE} bytes"
+          echo "  admin.html: ${ADMIN_SIZE} bytes"
+          [ $INDEX_SIZE -gt 50000 ] || { echo "✗ index.html 疑似不完整"; exit 1; }
+          [ $ADMIN_SIZE -gt 50000 ] || { echo "✗ admin.html 疑似不完整"; exit 1; }
+
+      # ── 3. 上传并部署 ────────────────────────────────────────────────────
+      - name: 🚀 SCP 上传到服务器
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host:        ${{ secrets.SERVER_HOST }}
+          username:    ${{ secrets.SERVER_USER }}
+          key:         ${{ secrets.SERVER_SSH_KEY }}
+          source:      "index.html,admin.html"
+          target:      "/tmp/showcomefu-deploy/"
+          overwrite:   true
+
+      - name: ⚡ 应用部署并重载 Nginx
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host:     ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key:      ${{ secrets.SERVER_SSH_KEY }}
+          script: |
+            set -e
+
+            SITE_DIR="/var/www/showcomefu"
+            DEPLOY_SRC="/tmp/showcomefu-deploy"
+            BACKUP_DIR="$HOME/backups"
+            DATE=$(date +%Y%m%d_%H%M%S)
+
+            echo "── 备份当前版本 ──"
+            mkdir -p "$BACKUP_DIR"
+            [ -f "$SITE_DIR/index.html" ] && \
+              tar -czf "$BACKUP_DIR/pre-deploy-$DATE.tar.gz" -C "$SITE_DIR" . 2>/dev/null || true
+
+            echo "── 部署新版本 ──"
+            sudo cp "$DEPLOY_SRC/index.html" "$SITE_DIR/index.html"
+            sudo cp "$DEPLOY_SRC/admin.html" "$SITE_DIR/admin.html"
+            sudo chown www-data:www-data "$SITE_DIR"/*.html
+            sudo chmod 644 "$SITE_DIR"/*.html
+
+            echo "── 验证 Nginx 配置 ──"
+            sudo nginx -t
+
+            echo "── 重载 Nginx ──"
+            sudo systemctl reload nginx
+
+            echo "── 清理临时文件 ──"
+            rm -rf "$DEPLOY_SRC"
+
+            # 保留最近 10 个备份
+            ls -t "$BACKUP_DIR"/pre-deploy-*.tar.gz 2>/dev/null | tail -n +11 | xargs -r rm
+
+            echo "✅ 部署完成：$(date '+%Y-%m-%d %H:%M:%S')"
+
+      # ── 4. 健康检查 ──────────────────────────────────────────────────────
+      - name: 🩺 生产环境健康检查
+        run: |
+          DOMAIN="${{ secrets.SITE_DOMAIN }}"
+          echo "检查 https://$DOMAIN ..."
+          
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            --max-time 15 \
+            --retry 3 \
+            --retry-delay 5 \
+            "https://$DOMAIN/" 2>/dev/null)
+          
+          if [ "$STATUS" = "200" ]; then
+            echo "✅ 前台响应正常 (HTTP $STATUS)"
+          else
+            echo "❌ 前台响应异常 (HTTP $STATUS)"
+            exit 1
+          fi
+
+      # ── 5. 部署通知（可选）──────────────────────────────────────────────
+      - name: 📢 部署成功通知
+        if: success()
+        run: |
+          echo "🎉 ShowCome 部署成功"
+          echo "   提交：${{ github.sha }}"
+          echo "   分支：${{ github.ref_name }}"
+          echo "   时间：$(date '+%Y-%m-%d %H:%M:%S UTC')"
+          echo "   操作：${{ github.actor }}"
+          # 可在此添加微信/飞书/邮件通知 Webhook
+
+      - name: 🚨 部署失败通知
+        if: failure()
+        run: |
+          echo "❌ ShowCome 部署失败！请检查日志。"
+
+# =============================================================================
+#  所需 GitHub Secrets（在仓库 Settings → Secrets → Actions 中配置）：
+#
+#  SERVER_HOST     — 服务器 IP，如 123.45.67.89
+#  SERVER_USER     — SSH 用户名，如 deploy
+#  SERVER_SSH_KEY  — 私钥内容（对应服务器 ~/.ssh/authorized_keys 中的公钥）
+#  SITE_DOMAIN     — 域名，如 showcomefu.com
+#
+#  生成 SSH 密钥对：
+#    ssh-keygen -t ed25519 -C "github-actions-deploy" -f ~/.ssh/showcomefu_deploy
+#    # 将公钥追加到服务器：
+#    cat ~/.ssh/showcomefu_deploy.pub >> ~/.ssh/authorized_keys
+#    # 将私钥内容复制到 GitHub Secret SERVER_SSH_KEY
+# =============================================================================
