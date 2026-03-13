@@ -2049,15 +2049,32 @@ accessories|配饰定制</textarea>
 
 <script>
 // ═══════════════════════════════════════════
+// API LAYER
+// ═══════════════════════════════════════════
+const API_BASE = '/api';
+let AUTH_TOKEN = sessionStorage.getItem('showcomefu_token') || '';
+
+async function api(path, options = {}) {
+  const headers = { 'Content-Type': 'application/json', ...(options.headers||{}) };
+  if (AUTH_TOKEN) headers['Authorization'] = `Bearer ${AUTH_TOKEN}`;
+  const res = await fetch(API_BASE + path, { ...options, headers });
+  if (res.status === 401) {
+    AUTH_TOKEN = '';
+    sessionStorage.removeItem('showcomefu_token');
+    sessionStorage.removeItem('showcomefu_session');
+    location.reload();
+    throw new Error('认证已过期');
+  }
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || '请求失败');
+  return data;
+}
+
+// ═══════════════════════════════════════════
 // CONSTANTS & STATE
 // ═══════════════════════════════════════════
-const ADMIN_KEY = 'showcomefu_admins';
-const CMS_KEY   = 'showcomefu_frontend';
-const LOG_KEY   = 'showcomefu_log';
 
-const DEFAULT_ADMINS = [
-  { username:'admin', password:'showcome2024', role:'admin', lastLogin: new Date().toISOString(), active:true }
-];
+const DEFAULT_ADMINS = [];
 
 const DEFAULT_CMS = {
   site: { name:'兽可梦', nameEn:'Show Come Studio', pageTitle:'兽可梦 Show Come | 专业兽装定制工作室', slogan:'专业兽装定制工作室 · 2024年度最佳工作室', footerCopy:'© 2024 兽可梦 Show Come Studio. 保留所有权利.', icp:'', logoEmoji:'🐾', logoUrl:'', faviconUrl:'', newsletterText:'订阅我们的邮件，获取最新作品、活动和优惠信息', customCss:'', navShowCta:true, navShowCart:true, navShowLogin:true },
@@ -2121,21 +2138,37 @@ let editingId = { work:null, product:null, testimonial:null, dynamic:null, socia
 // ═══════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════
-function init() {
-  ADMINS = JSON.parse(localStorage.getItem(ADMIN_KEY) || 'null') || DEFAULT_ADMINS;
-  const stored = localStorage.getItem(CMS_KEY);
-  CMS = stored ? deepMerge(DEFAULT_CMS, JSON.parse(stored)) : JSON.parse(JSON.stringify(DEFAULT_CMS));
-  // ensure arrays don't get wiped
+async function init() {
+  CMS = JSON.parse(JSON.stringify(DEFAULT_CMS));
+
+  const sess = sessionStorage.getItem('showcomefu_session');
+  const token = sessionStorage.getItem('showcomefu_token');
+  if (sess && token) {
+    AUTH_TOKEN = token;
+    try {
+      const me = await api('/auth/me');
+      currentUser = { username: me.username, role: me.role, displayName: me.display_name };
+      await loadCmsFromApi();
+      startApp();
+    } catch {
+      AUTH_TOKEN = '';
+      sessionStorage.removeItem('showcomefu_token');
+      sessionStorage.removeItem('showcomefu_session');
+    }
+  }
+}
+
+async function loadCmsFromApi() {
+  try {
+    const data = await api('/cms/frontend');
+    if (data && typeof data === 'object') {
+      CMS = deepMerge(DEFAULT_CMS, data);
+    }
+  } catch { /* 首次使用，无数据，使用默认值 */ }
   ['works','products','workCategories','productCategories','testimonials','dynamics','social','media','assets3d'].forEach(k => {
     if (!CMS[k] || !Array.isArray(CMS[k])) CMS[k] = DEFAULT_CMS[k];
     if (CMS[k].length === 0 && DEFAULT_CMS[k].length > 0) CMS[k] = DEFAULT_CMS[k];
   });
-
-  const sess = sessionStorage.getItem('showcomefu_session');
-  if (sess) {
-    currentUser = JSON.parse(sess);
-    startApp();
-  }
 }
 
 function deepMerge(base, override) {
@@ -2153,25 +2186,44 @@ function deepMerge(base, override) {
 // ═══════════════════════════════════════════
 // AUTH
 // ═══════════════════════════════════════════
-function doLogin() {
+async function doLogin() {
   const u = document.getElementById('loginUser').value.trim();
   const p = document.getElementById('loginPass').value;
-  const admin = ADMINS.find(a => a.username === u && a.password === p && a.active !== false);
-  if (!admin) {
-    document.getElementById('loginError').style.display = 'block';
-    return;
+  const errEl = document.getElementById('loginError');
+  errEl.style.display = 'none';
+
+  try {
+    const res = await fetch(API_BASE + '/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: u, password: p })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      errEl.style.display = 'block';
+      errEl.querySelector?.('span')?.remove();
+      if (data.error) errEl.textContent = data.error;
+      return;
+    }
+    AUTH_TOKEN = data.token;
+    currentUser = data.user;
+    sessionStorage.setItem('showcomefu_token', data.token);
+    sessionStorage.setItem('showcomefu_session', JSON.stringify(data.user));
+    await loadCmsFromApi();
+    document.getElementById('loginScreen').style.display = 'none';
+    startApp();
+  } catch (e) {
+    errEl.style.display = 'block';
+    errEl.textContent = '网络错误，请检查服务器连接';
   }
-  admin.lastLogin = new Date().toISOString();
-  saveAdmins();
-  currentUser = admin;
-  sessionStorage.setItem('showcomefu_session', JSON.stringify(admin));
-  document.getElementById('loginScreen').style.display = 'none';
-  startApp();
 }
 
 document.getElementById('loginPass').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
 
-function doLogout() {
+async function doLogout() {
+  try { await api('/auth/logout', { method: 'POST' }); } catch {}
+  AUTH_TOKEN = '';
+  sessionStorage.removeItem('showcomefu_token');
   sessionStorage.removeItem('showcomefu_session');
   location.reload();
 }
@@ -2323,13 +2375,20 @@ function getVal(id) { return (document.getElementById(id)||{}).value || ''; }
 function getCheck(id) { return !!(document.getElementById(id)||{}).checked; }
 
 // ═══════════════════════════════════════════
-// PERSIST
+// PERSIST (API)
 // ═══════════════════════════════════════════
-function persist() {
-  localStorage.setItem(CMS_KEY, JSON.stringify(CMS));
+let _persistTimer = null;
+async function persist() {
   showSaveIndicator();
+  clearTimeout(_persistTimer);
+  _persistTimer = setTimeout(async () => {
+    try {
+      await api('/cms/frontend', { method: 'PUT', body: JSON.stringify(CMS) });
+    } catch (e) {
+      toast('error', '保存失败: ' + e.message);
+    }
+  }, 300);
 }
-function saveAdmins() { localStorage.setItem(ADMIN_KEY, JSON.stringify(ADMINS)); }
 
 function showSaveIndicator() {
   const el = document.getElementById('saveIndicator');
@@ -2338,11 +2397,14 @@ function showSaveIndicator() {
   el._t = setTimeout(() => el.classList.remove('show'), 3000);
 }
 
-function saveAll() {
+async function saveAll() {
   collectAllForms();
-  persist();
-  addLog('green', `${currentUser.username} 执行了完整保存并发布`);
-  toast('success', '✅ 保存并发布成功！前台内容已更新');
+  try {
+    await api('/cms/frontend', { method: 'PUT', body: JSON.stringify(CMS) });
+    toast('success', '保存并发布成功！前台内容已更新');
+  } catch (e) {
+    toast('error', '保存失败: ' + e.message);
+  }
 }
 
 function collectAllForms() {
@@ -2398,13 +2460,13 @@ function collectAllForms() {
 // ═══════════════════════════════════════════
 // SECTION SAVES
 // ═══════════════════════════════════════════
-function saveSiteConfig() { collectAllForms(); persist(); addLog('accent','站点基础设置已更新'); toast('success','站点配置已保存'); }
-function saveTheme() { collectAllForms(); persist(); addLog('accent','外观主题已更新'); toast('success','主题已应用'); }
-function saveSeo() { collectAllForms(); persist(); updateSeoScore(); addLog('accent','SEO设置已更新'); toast('success','SEO 设置已保存'); }
-function saveHero() { collectAllForms(); persist(); addLog('accent','首页Hero已更新'); toast('success','首页 Hero 已保存'); }
-function saveAbout() { collectAllForms(); persist(); addLog('accent','关于我们已更新'); toast('success','关于我们已保存'); }
-function saveCustomPage() { collectAllForms(); persist(); addLog('accent','定制流程已更新'); toast('success','定制流程已保存'); }
-function saveContact() { collectAllForms(); persist(); addLog('accent','联系信息已更新'); toast('success','联系信息已保存'); }
+function saveSiteConfig() { collectAllForms(); persist(); toast('success','站点配置已保存'); }
+function saveTheme() { collectAllForms(); persist(); toast('success','主题已应用'); }
+function saveSeo() { collectAllForms(); persist(); updateSeoScore(); toast('success','SEO 设置已保存'); }
+function saveHero() { collectAllForms(); persist(); toast('success','首页 Hero 已保存'); }
+function saveAbout() { collectAllForms(); persist(); toast('success','关于我们已保存'); }
+function saveCustomPage() { collectAllForms(); persist(); toast('success','定制流程已保存'); }
+function saveContact() { collectAllForms(); persist(); toast('success','联系信息已保存'); }
 function save3DConfig() { collectAllForms(); persist(); toast('success','3D 场景配置已保存'); }
 
 // ═══════════════════════════════════════════
@@ -2418,24 +2480,26 @@ function refreshDashboard() {
   renderActivityLog();
 }
 
-function renderActivityLog() {
-  const logs = JSON.parse(localStorage.getItem(LOG_KEY)||'[]').slice(0,8);
+async function renderActivityLog() {
   const el = document.getElementById('activityLog');
-  if (!logs.length) { el.innerHTML = '<div class="empty-state" style="padding:30px 0"><div class="empty-icon" style="font-size:24px">📋</div><div>暂无操作记录</div></div>'; return; }
-  el.innerHTML = logs.map(l=>`
-    <div class="activity-item">
-      <div class="activity-dot ${l.color||'accent'}"></div>
-      <div>
-        <div class="activity-text">${l.text}</div>
-        <div class="activity-time">${new Date(l.time).toLocaleString('zh-CN')}</div>
-      </div>
-    </div>`).join('');
+  try {
+    const logs = await api('/logs');
+    if (!logs.length) { el.innerHTML = '<div class="empty-state" style="padding:30px 0"><div class="empty-icon" style="font-size:24px">📋</div><div>暂无操作记录</div></div>'; return; }
+    el.innerHTML = logs.slice(0,8).map(l=>`
+      <div class="activity-item">
+        <div class="activity-dot accent"></div>
+        <div>
+          <div class="activity-text">${l.user ? l.user+' ' : ''}${l.action}</div>
+          <div class="activity-time">${new Date(l.created_at).toLocaleString('zh-CN')}</div>
+        </div>
+      </div>`).join('');
+  } catch {
+    el.innerHTML = '<div class="empty-state" style="padding:30px 0"><div class="empty-icon" style="font-size:24px">📋</div><div>暂无操作记录</div></div>';
+  }
 }
 
 function addLog(color, text) {
-  const logs = JSON.parse(localStorage.getItem(LOG_KEY)||'[]');
-  logs.unshift({ color, text, time: new Date().toISOString() });
-  localStorage.setItem(LOG_KEY, JSON.stringify(logs.slice(0,50)));
+  // API 自动记录操作日志，此函数保留接口兼容
   if(document.getElementById('activityLog')) renderActivityLog();
 }
 
@@ -2828,59 +2892,61 @@ function saveSocial() {
 // ═══════════════════════════════════════════
 // ADMINS
 // ═══════════════════════════════════════════
-function renderAdminsTable() {
-  document.getElementById('adminsTableBody').innerHTML = ADMINS.map(a=>`
-    <tr>
-      <td><div class="user-avatar" style="display:inline-flex">${a.username[0].toUpperCase()}</div></td>
-      <td><strong>${a.username}</strong> ${a.username===currentUser.username?'<span class="badge badge-green">你</span>':''}</td>
-      <td><span class="badge ${a.role==='admin'?'badge-accent':a.role==='editor'?'badge-blue':'badge-gray'}">${{admin:'超级管理员',editor:'编辑员',viewer:'只读'}[a.role]||a.role}</span></td>
-      <td class="mono" style="font-size:11px;color:var(--text2)">${a.lastLogin ? new Date(a.lastLogin).toLocaleString('zh-CN') : '-'}</td>
-      <td>${a.active!==false ? '<span class="badge badge-green">正常</span>' : '<span class="badge badge-red">禁用</span>'}</td>
-      <td><div class="td-actions">
-        ${a.username!==currentUser.username ? `<button class="btn btn-danger btn-sm btn-icon" onclick="confirmDeleteAdmin('${a.username}')">🗑️</button>` : ''}
-        <button class="btn btn-secondary btn-sm btn-icon" onclick="toggleAdminStatus('${a.username}')" title="切换状态">🔄</button>
-      </div></td>
-    </tr>`).join('');
+async function renderAdminsTable() {
+  try {
+    ADMINS = await api('/admins');
+    document.getElementById('adminsTableBody').innerHTML = ADMINS.map(a=>`
+      <tr>
+        <td><div class="user-avatar" style="display:inline-flex">${a.username[0].toUpperCase()}</div></td>
+        <td><strong>${a.username}</strong> ${a.display_name?`(${a.display_name})`:''} ${a.username===currentUser.username?'<span class="badge badge-green">你</span>':''}</td>
+        <td><span class="badge ${a.role==='admin'?'badge-accent':a.role==='editor'?'badge-blue':'badge-gray'}">${{admin:'超级管理员',editor:'编辑员',viewer:'只读'}[a.role]||a.role}</span></td>
+        <td class="mono" style="font-size:11px;color:var(--text2)">${a.last_login ? new Date(a.last_login).toLocaleString('zh-CN') : '-'}</td>
+        <td>${a.active ? '<span class="badge badge-green">正常</span>' : '<span class="badge badge-red">禁用</span>'}</td>
+        <td><div class="td-actions">
+          ${a.username!==currentUser.username ? `<button class="btn btn-danger btn-sm btn-icon" onclick="toggleAdminStatus(${a.id}, ${a.active?0:1})" title="${a.active?'禁用':'启用'}">🔄</button>` : ''}
+        </div></td>
+      </tr>`).join('');
+  } catch (e) { toast('error','加载管理员列表失败'); }
 }
 
 function openAdminModal() { openModal('adminModal'); ['am-username','am-password','am-password2'].forEach(i=>setVal(i,'')); }
 
-function saveAdmin() {
+async function saveAdmin() {
   const u = getVal('am-username'), p = getVal('am-password'), p2 = getVal('am-password2');
   if (!u||!p) { toast('error','请填写用户名和密码'); return; }
+  if (p.length < 8) { toast('error','密码至少 8 位'); return; }
   if (p!==p2) { toast('error','两次密码不一致'); return; }
-  if (ADMINS.find(a=>a.username===u)) { toast('error','用户名已存在'); return; }
-  ADMINS.push({ username:u, password:p, role:getVal('am-role'), lastLogin:null, active:true });
-  saveAdmins(); renderAdminsTable(); closeModal('adminModal');
-  addLog('accent',`新增管理员账号 "${u}"`);
-  toast('success',`管理员 "${u}" 已创建`);
+  try {
+    await api('/admins', { method:'POST', body: JSON.stringify({ username:u, password:p, role:getVal('am-role') }) });
+    renderAdminsTable(); closeModal('adminModal');
+    toast('success',`管理员 "${u}" 已创建`);
+  } catch (e) { toast('error', e.message); }
 }
 
-function toggleAdminStatus(username) {
-  const a = ADMINS.find(x=>x.username===username);
-  if (a) { a.active = !a.active; saveAdmins(); renderAdminsTable(); toast('info',`账号 "${username}" 状态已更新`); }
-}
-
-function confirmDeleteAdmin(username) {
-  confirm2('确认删除账号', `确定要删除管理员账号 "${username}" 吗？此操作不可恢复。`, () => {
-    ADMINS = ADMINS.filter(a=>a.username!==username);
-    saveAdmins(); renderAdminsTable(); toast('success','账号已删除');
-  });
+async function toggleAdminStatus(id, active) {
+  try {
+    await api(`/admins/${id}`, { method:'PATCH', body: JSON.stringify({ active: !!active }) });
+    renderAdminsTable();
+    toast('info','账号状态已更新');
+  } catch (e) { toast('error', e.message); }
 }
 
 // ═══════════════════════════════════════════
 // MEDIA
 // ═══════════════════════════════════════════
-function renderMediaGrid() {
+let _mediaCache = [];
+async function renderMediaGrid() {
   const q = getVal('mediaSearch').toLowerCase();
   const ft = getVal('mediaFilter');
-  const items = (CMS.media||[]).filter(m => {
-    const matchQ = !q || m.name.toLowerCase().includes(q);
-    const matchT = !ft || m.type === ft;
-    return matchQ && matchT;
-  });
-  document.getElementById('mediaCount').textContent = `共 ${items.length} 项`;
   const grid = document.getElementById('mediaGrid');
+  try {
+    const queryParams = [];
+    if (ft) queryParams.push(`type=${ft}`);
+    if (q) queryParams.push(`q=${encodeURIComponent(q)}`);
+    _mediaCache = await api('/media' + (queryParams.length ? '?'+queryParams.join('&') : ''));
+  } catch { _mediaCache = []; }
+  const items = _mediaCache;
+  document.getElementById('mediaCount').textContent = `共 ${items.length} 项`;
   if (!items.length) {
     grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon">🗂️</div><div class="empty-title">暂无媒体文件</div><div class="empty-desc">添加图片、视频或 3D 模型资源</div></div>';
     return;
@@ -2888,12 +2954,12 @@ function renderMediaGrid() {
   grid.innerHTML = items.map(m=>`
     <div class="media-item" onclick="selectMedia(${m.id})">
       <div class="media-thumb">
-        ${m.thumb ? `<img src="${m.thumb}" onerror="this.style.display='none'">` : ''}
-        <span style="${m.thumb?'display:none':'font-size:28px'}">${mediaIcon(m.type)}</span>
+        ${m.thumb_url ? `<img src="${m.thumb_url}" onerror="this.style.display='none'">` : (m.url && m.type==='image' ? `<img src="${m.url}" onerror="this.style.display='none'">` : '')}
+        <span style="${(m.thumb_url||m.type==='image')?'display:none':'font-size:28px'}">${mediaIcon(m.type)}</span>
       </div>
       <div class="media-info">
         <div class="media-name" title="${m.name}">${m.name}</div>
-        <div class="media-meta">${m.type} · ${m.size||'-'}</div>
+        <div class="media-meta">${m.type} · ${m.size_bytes ? formatBytes(m.size_bytes) : '-'}</div>
       </div>
     </div>`).join('');
 }
@@ -2903,18 +2969,40 @@ function mediaIcon(t) { return {image:'🖼️',video:'🎬',audio:'🎵',model:
 function triggerMediaUpload() { document.getElementById('mediaFileInput').click(); }
 function openMediaUpload() { document.getElementById('mediaFileInput').click(); }
 
-function handleMediaFiles(files) {
+async function handleMediaFiles(files) {
+  let uploaded = 0;
   for (const f of files) {
     const type = f.type.startsWith('image') ? 'image' : f.type.startsWith('video') ? 'video' : f.type.startsWith('audio') ? 'audio' : 'model';
-    const item = { id: Date.now()+Math.random(), name: f.name, type, size: formatBytes(f.size), thumb:'', url:'' };
-    // In production: upload to CDN. For demo: use object URL
-    if (type==='image') { const r=new FileReader(); r.onload=e=>{item.thumb=e.target.result;persist();renderMediaGrid();}; r.readAsDataURL(f); }
-    CMS.media = CMS.media || [];
-    CMS.media.push(item);
-    addLog('green',`上传媒体文件 "${f.name}"`);
+    try {
+      // 获取 OSS 签名
+      const sign = await api('/oss/sign', { method:'POST', body: JSON.stringify({ filename: f.name, contentType: f.type }) });
+
+      // 直传 OSS
+      const formData = new FormData();
+      formData.append('key', sign.key);
+      formData.append('policy', sign.policy);
+      formData.append('OSSAccessKeyId', sign.OSSAccessKeyId);
+      formData.append('Signature', sign.signature);
+      formData.append('Content-Type', f.type);
+      formData.append('file', f);
+
+      const ossRes = await fetch(sign.host, { method: 'POST', body: formData });
+      if (!ossRes.ok && ossRes.status !== 204) throw new Error('OSS 上传失败');
+
+      // 记录到数据库
+      await api('/media', { method:'POST', body: JSON.stringify({
+        name: f.name, type, url: sign.url,
+        thumbUrl: type==='image' ? sign.url+'?x-oss-process=image/resize,w_200' : '',
+        sizeBytes: f.size, mimeType: f.type,
+        storage: 'oss', storageKey: sign.key
+      })});
+      uploaded++;
+    } catch (e) {
+      toast('error', `"${f.name}" 上传失败: ${e.message}`);
+    }
   }
-  persist(); renderMediaGrid();
-  toast('success',`已添加 ${files.length} 个文件（演示模式，实际需对接 CDN）`);
+  renderMediaGrid();
+  if (uploaded > 0) toast('success',`已上传 ${uploaded} 个文件到 OSS`);
 }
 
 function handleMediaDrop(e) {
@@ -2924,11 +3012,10 @@ function handleMediaDrop(e) {
 }
 
 function selectMedia(id) {
-  const m = (CMS.media||[]).find(x=>x.id===id);
+  const m = _mediaCache.find(x=>x.id===id);
   if (!m) return;
-  // copy URL to clipboard
-  const url = m.url || m.thumb || `[${m.name}]`;
-  navigator.clipboard?.writeText(url).then(()=>toast('info',`已复制 URL: ${url.slice(0,40)}...`));
+  const url = m.url || m.thumb_url || `[${m.name}]`;
+  navigator.clipboard?.writeText(url).then(()=>toast('info',`已复制 URL: ${url.slice(0,60)}...`));
 }
 
 function formatBytes(b) {
@@ -3114,43 +3201,59 @@ function addQrCode(){CMS.contact.qrCodes=CMS.contact.qrCodes||[];CMS.contact.qrC
 function removeQr(i){CMS.contact.qrCodes.splice(i,1);renderQrCodes();}
 
 // ═══════════════════════════════════════════
-// ORDERS (demo)
+// ORDERS (API)
 // ═══════════════════════════════════════════
-function renderOrdersTable() {
-  const orders = JSON.parse(localStorage.getItem('showcomefu_orders')||'[]');
-  document.getElementById('ordersTableBody').innerHTML = orders.length ?
-    orders.map(o=>`
-      <tr>
-        <td class="mono" style="font-size:11px;color:var(--text2)">${new Date(o.time||Date.now()).toLocaleString('zh-CN')}</td>
-        <td>${o.nickname||'-'}</td>
-        <td>${o.contact||'-'}</td>
-        <td>${o.type||'-'}</td>
-        <td>${o.budget||'-'}</td>
-        <td><span class="badge ${o.status==='contacted'?'badge-green':o.status==='done'?'badge-blue':'badge-amber'}">${{new:'待处理',contacted:'已联系',done:'已完成'}[o.status||'new']||'待处理'}</span></td>
-        <td style="max-width:160px;font-size:12px;color:var(--text2)" class="truncate">${o.note||'-'}</td>
-        <td><select onchange="updateOrderStatus('${o.id}',this.value)" style="background:var(--bg4);border:1px solid var(--border);border-radius:var(--radius);padding:4px 8px;color:var(--text);font-size:11px">
-          <option value="new" ${o.status==='new'||!o.status?'selected':''}>待处理</option>
-          <option value="contacted" ${o.status==='contacted'?'selected':''}>已联系</option>
-          <option value="done" ${o.status==='done'?'selected':''}>已完成</option>
-        </select></td>
-      </tr>`).join('') :
-    '<tr><td colspan="8" style="text-align:center;padding:60px;color:var(--text2)"><div style="font-size:32px;margin-bottom:12px">📦</div><div>暂无定制订单</div><div style="font-size:12px;margin-top:6px;color:var(--text3)">前台提交的定制申请将显示在这里</div></td></tr>';
+let _ordersCache = [];
+async function renderOrdersTable() {
+  const statusLabels = {new:'待处理',contacted:'已联系',designing:'设计中',making:'制作中',done:'已完成',cancelled:'已取消'};
+  const statusBadges = {new:'badge-amber',contacted:'badge-green',designing:'badge-blue',making:'badge-accent',done:'badge-green',cancelled:'badge-red'};
+  try {
+    const res = await api('/orders?limit=200');
+    _ordersCache = res.data || [];
+    const orders = _ordersCache;
+    document.getElementById('ordersTableBody').innerHTML = orders.length ?
+      orders.map(o=>`
+        <tr>
+          <td class="mono" style="font-size:11px;color:var(--text2)">${new Date(o.created_at).toLocaleString('zh-CN')}</td>
+          <td>${o.nickname||'-'}</td>
+          <td>${o.contact||'-'}</td>
+          <td>${o.type||'-'}</td>
+          <td>${o.budget||'-'}</td>
+          <td><span class="badge ${statusBadges[o.status]||'badge-amber'}">${statusLabels[o.status]||'待处理'}</span></td>
+          <td style="max-width:160px;font-size:12px;color:var(--text2)" class="truncate">${o.note||'-'}</td>
+          <td><select onchange="updateOrderStatus('${o.id}',this.value)" style="background:var(--bg4);border:1px solid var(--border);border-radius:var(--radius);padding:4px 8px;color:var(--text);font-size:11px">
+            <option value="new" ${o.status==='new'?'selected':''}>待处理</option>
+            <option value="contacted" ${o.status==='contacted'?'selected':''}>已联系</option>
+            <option value="designing" ${o.status==='designing'?'selected':''}>设计中</option>
+            <option value="making" ${o.status==='making'?'selected':''}>制作中</option>
+            <option value="done" ${o.status==='done'?'selected':''}>已完成</option>
+            <option value="cancelled" ${o.status==='cancelled'?'selected':''}>已取消</option>
+          </select></td>
+        </tr>`).join('') :
+      '<tr><td colspan="8" style="text-align:center;padding:60px;color:var(--text2)"><div style="font-size:32px;margin-bottom:12px">📦</div><div>暂无定制订单</div><div style="font-size:12px;margin-top:6px;color:var(--text3)">前台提交的定制申请将显示在这里</div></td></tr>';
+  } catch (e) {
+    toast('error','加载订单失败: '+e.message);
+  }
 }
 
-function updateOrderStatus(id, status) {
-  const orders = JSON.parse(localStorage.getItem('showcomefu_orders')||'[]');
-  const o = orders.find(x=>x.id===id);
-  if (o) { o.status = status; localStorage.setItem('showcomefu_orders', JSON.stringify(orders)); toast('success','订单状态已更新'); }
+async function updateOrderStatus(id, status) {
+  try {
+    await api(`/orders/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) });
+    toast('success','订单状态已更新');
+  } catch (e) { toast('error','更新失败: '+e.message); }
 }
 
-function exportOrders() {
-  const orders = JSON.parse(localStorage.getItem('showcomefu_orders')||'[]');
-  if (!orders.length) { toast('error','暂无订单数据'); return; }
-  const csv = ['时间,昵称,联系方式,类型,预算,状态'].concat(
-    orders.map(o=>[new Date(o.time).toLocaleString(),o.nickname,o.contact,o.type,o.budget,o.status||'new'].join(','))
-  ).join('\n');
-  downloadText(csv, 'orders.csv', 'text/csv');
-  toast('success','订单数据已导出');
+async function exportOrders() {
+  try {
+    const res = await api('/orders?limit=9999');
+    const orders = res.data || [];
+    if (!orders.length) { toast('error','暂无订单数据'); return; }
+    const csv = ['时间,昵称,联系方式,类型,预算,状态,备注'].concat(
+      orders.map(o=>[new Date(o.created_at).toLocaleString(),o.nickname||'',o.contact||'',o.type||'',o.budget||'',o.status||'new',`"${(o.note||'').replace(/"/g,'""')}"`].join(','))
+    ).join('\n');
+    downloadText('\uFEFF'+csv, 'orders.csv', 'text/csv;charset=utf-8');
+    toast('success','订单数据已导出');
+  } catch (e) { toast('error','导出失败: '+e.message); }
 }
 
 // ═══════════════════════════════════════════
@@ -3166,14 +3269,16 @@ function importData(input) {
   const f = input.files[0];
   if (!f) return;
   const r = new FileReader();
-  r.onload = e => {
+  r.onload = async e => {
     try {
       const data = JSON.parse(e.target.result);
-      confirm2('确认导入', '导入将覆盖当前所有 CMS 数据，确定继续？', () => {
+      confirm2('确认导入', '导入将覆盖当前所有 CMS 数据，确定继续？', async () => {
         CMS = deepMerge(DEFAULT_CMS, data);
-        persist(); populateAllForms(); refreshDashboard();
-        addLog('amber','从文件导入CMS数据');
-        toast('success','数据导入成功！'); updateDataSnapshot();
+        try {
+          await api('/cms/frontend', { method: 'PUT', body: JSON.stringify(CMS) });
+          populateAllForms(); refreshDashboard();
+          toast('success','数据导入成功！'); updateDataSnapshot();
+        } catch (err) { toast('error','保存失败: '+err.message); }
       });
     } catch(err) { toast('error','JSON 文件格式错误'); }
   };
@@ -3181,11 +3286,13 @@ function importData(input) {
 }
 
 function resetAllData() {
-  confirm2('重置所有数据', '⚠️ 此操作将清除所有 CMS 配置并恢复默认数据，无法撤销！', () => {
+  confirm2('重置所有数据', '此操作将清除所有 CMS 配置并恢复默认数据，无法撤销！', async () => {
     CMS = JSON.parse(JSON.stringify(DEFAULT_CMS));
-    persist(); populateAllForms(); refreshDashboard();
-    addLog('red','重置所有CMS数据为默认值');
-    toast('info','数据已重置为默认值');
+    try {
+      await api('/cms/frontend', { method: 'PUT', body: JSON.stringify(CMS) });
+      populateAllForms(); refreshDashboard();
+      toast('info','数据已重置为默认值');
+    } catch (err) { toast('error','重置失败: '+err.message); }
   });
 }
 
@@ -3291,7 +3398,7 @@ document.querySelectorAll('.modal-backdrop').forEach(el => {
 
 function confirmDelete(type, id) {
   const labels = { work:'作品', product:'商品', testimonial:'评价', dynamic:'动态', social:'平台', cat_work:'作品分类', cat_product:'商品分类', asset3d:'3D资产' };
-  confirm2('确认删除', `确定要删除这条${labels[type]||type}记录吗？此操作不可撤销。`, () => {
+  confirm2('确认删除', `确定要删除这条${labels[type]||type}记录吗？此操作不可撤销。`, async () => {
     if (type==='work') CMS.works = CMS.works.filter(x=>x.id!==id);
     else if (type==='product') CMS.products = CMS.products.filter(x=>x.id!==id);
     else if (type==='testimonial') CMS.testimonials = CMS.testimonials.filter(x=>x.id!==id);
@@ -3300,8 +3407,7 @@ function confirmDelete(type, id) {
     else if (type==='cat_work') CMS.workCategories = CMS.workCategories.filter(x=>x.id!==id);
     else if (type==='cat_product') CMS.productCategories = CMS.productCategories.filter(x=>x.id!==id);
     else if (type==='asset3d') CMS.assets3d = (CMS.assets3d||[]).filter(x=>x.id!==id);
-    persist(); addLog('red',`删除了一条${labels[type]||type}记录`);
-    // re-render current page
+    persist();
     const active = document.querySelector('.page.active');
     if (active) showPage(active.id.replace('page-',''));
     refreshDashboard(); toast('success','已删除');
@@ -3344,9 +3450,11 @@ function toast(type, msg) {
 // ═══════════════════════════════════════════
 // FRONTEND PREVIEW
 // ═══════════════════════════════════════════
-function openFrontend() {
+async function openFrontend() {
   collectAllForms();
-  persist();
+  try {
+    await api('/cms/frontend', { method: 'PUT', body: JSON.stringify(CMS) });
+  } catch {}
   window.open('index.html', '_blank');
 }
 

@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ShowCome 系统初始化</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#0a0a0f;--card:#111118;--border:#222;--accent:#7c3aed;--accent-hover:#6d28d9;--green:#06d6a0;--red:#f72585;--text:#e8e8f0;--text-dim:#888;--radius:12px}
+body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+.setup-container{width:100%;max-width:640px}
+.logo{text-align:center;margin-bottom:32px}
+.logo h1{font-size:28px;font-weight:700;background:linear-gradient(135deg,var(--accent),var(--green));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.logo p{color:var(--text-dim);margin-top:8px;font-size:14px}
+.steps-bar{display:flex;gap:4px;margin-bottom:32px}
+.steps-bar .step-dot{flex:1;height:4px;border-radius:2px;background:var(--border);transition:background .3s}
+.steps-bar .step-dot.active{background:var(--accent)}
+.steps-bar .step-dot.done{background:var(--green)}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:32px;margin-bottom:16px}
+.card h2{font-size:20px;margin-bottom:8px}
+.card .desc{color:var(--text-dim);font-size:14px;margin-bottom:24px}
+.form-group{margin-bottom:20px}
+.form-group label{display:block;font-size:13px;font-weight:600;color:var(--text-dim);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px}
+.form-group input,.form-group select{width:100%;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;outline:none;transition:border-color .2s}
+.form-group input:focus{border-color:var(--accent)}
+.form-group input.error{border-color:var(--red)}
+.form-group .hint{font-size:12px;color:var(--text-dim);margin-top:4px}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.btn-row{display:flex;gap:12px;justify-content:flex-end;margin-top:24px}
+.btn{padding:10px 24px;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;transition:all .2s}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:var(--accent-hover)}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed}
+.btn-outline{background:transparent;color:var(--text-dim);border:1px solid var(--border)}
+.btn-outline:hover{border-color:var(--text-dim)}
+.btn-test{background:transparent;color:var(--green);border:1px solid var(--green);padding:8px 16px;font-size:13px}
+.btn-test:hover{background:rgba(6,214,160,.1)}
+.status-msg{padding:10px 14px;border-radius:8px;font-size:13px;margin-top:12px;display:none}
+.status-msg.ok{display:block;background:rgba(6,214,160,.1);border:1px solid rgba(6,214,160,.3);color:var(--green)}
+.status-msg.err{display:block;background:rgba(247,37,133,.1);border:1px solid rgba(247,37,133,.3);color:var(--red)}
+.status-msg.info{display:block;background:rgba(124,58,237,.1);border:1px solid rgba(124,58,237,.3);color:var(--accent)}
+.result-card{text-align:center;padding:48px 32px}
+.result-card .icon{font-size:64px;margin-bottom:16px}
+.result-card h2{margin-bottom:12px}
+.result-card p{color:var(--text-dim);margin-bottom:24px}
+.spinner{display:inline-block;width:18px;height:18px;border:2px solid transparent;border-top-color:currentColor;border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;margin-right:6px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.skip-link{display:block;text-align:center;color:var(--text-dim);font-size:13px;margin-top:8px;cursor:pointer;text-decoration:underline}
+.skip-link:hover{color:var(--text)}
+</style>
+</head>
+<body>
+
+<div class="setup-container">
+  <div class="logo">
+    <h1>ShowCome 系统初始化</h1>
+    <p>首次部署，请完成以下配置</p>
+  </div>
+
+  <div class="steps-bar">
+    <div class="step-dot active" data-step="1"></div>
+    <div class="step-dot" data-step="2"></div>
+    <div class="step-dot" data-step="3"></div>
+    <div class="step-dot" data-step="4"></div>
+  </div>
+
+  <!-- Step 1: 数据库配置 -->
+  <div class="card step-panel" id="step-1">
+    <h2>1. 数据库配置</h2>
+    <p class="desc">配置 MySQL 数据库连接信息，系统将自动创建所需表结构</p>
+    <div class="form-row">
+      <div class="form-group">
+        <label>主机地址</label>
+        <input type="text" id="db-host" value="127.0.0.1" placeholder="127.0.0.1">
+      </div>
+      <div class="form-group">
+        <label>端口</label>
+        <input type="number" id="db-port" value="3306" placeholder="3306">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>数据库名</label>
+      <input type="text" id="db-name" value="showcomefu" placeholder="showcomefu">
+      <div class="hint">如数据库不存在，系统将自动创建</div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>用户名</label>
+        <input type="text" id="db-user" placeholder="showcome">
+      </div>
+      <div class="form-group">
+        <label>密码</label>
+        <input type="password" id="db-pass" placeholder="数据库密码">
+      </div>
+    </div>
+    <div id="db-status" class="status-msg"></div>
+    <div class="btn-row">
+      <button class="btn btn-test" onclick="testDb()">测试连接</button>
+      <button class="btn btn-primary" onclick="goStep(2)" id="btn-db-next" disabled>下一步</button>
+    </div>
+  </div>
+
+  <!-- Step 2: 管理员账号 -->
+  <div class="card step-panel" id="step-2" style="display:none">
+    <h2>2. 管理员账号</h2>
+    <p class="desc">设置超级管理员登录凭证</p>
+    <div class="form-group">
+      <label>用户名</label>
+      <input type="text" id="admin-user" value="admin" placeholder="admin">
+    </div>
+    <div class="form-group">
+      <label>显示名称</label>
+      <input type="text" id="admin-display" value="超级管理员" placeholder="超级管理员">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>密码</label>
+        <input type="password" id="admin-pass" placeholder="至少 8 位">
+      </div>
+      <div class="form-group">
+        <label>确认密码</label>
+        <input type="password" id="admin-pass2" placeholder="再次输入密码">
+      </div>
+    </div>
+    <div id="admin-status" class="status-msg"></div>
+    <div class="btn-row">
+      <button class="btn btn-outline" onclick="goStep(1)">上一步</button>
+      <button class="btn btn-primary" onclick="validateAdmin()">下一步</button>
+    </div>
+  </div>
+
+  <!-- Step 3: OSS 配置 -->
+  <div class="card step-panel" id="step-3" style="display:none">
+    <h2>3. 阿里云 OSS 对象存储</h2>
+    <p class="desc">配置媒体文件存储，图片/视频将上传至 OSS</p>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Region</label>
+        <select id="oss-region">
+          <option value="oss-cn-hangzhou">华东1（杭州）</option>
+          <option value="oss-cn-shanghai">华东2（上海）</option>
+          <option value="oss-cn-qingdao">华北1（青岛）</option>
+          <option value="oss-cn-beijing">华北2（北京）</option>
+          <option value="oss-cn-zhangjiakou">华北3（张家口）</option>
+          <option value="oss-cn-shenzhen">华南1（深圳）</option>
+          <option value="oss-cn-guangzhou">华南2（广州）</option>
+          <option value="oss-cn-chengdu">西南1（成都）</option>
+          <option value="oss-cn-hongkong">香港</option>
+          <option value="oss-cn-haikou">海口</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Bucket 名称</label>
+        <input type="text" id="oss-bucket" placeholder="showcomefu">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>AccessKey ID</label>
+      <input type="text" id="oss-ak" placeholder="LTAI...">
+    </div>
+    <div class="form-group">
+      <label>AccessKey Secret</label>
+      <input type="password" id="oss-sk" placeholder="AccessKey Secret">
+    </div>
+    <div class="form-group">
+      <label>自定义 Endpoint（可选）</label>
+      <input type="text" id="oss-endpoint" placeholder="https://oss-cn-haikou.aliyuncs.com">
+      <div class="hint">通常留空自动推断；如使用内网或自定义域名可填写</div>
+    </div>
+    <div class="form-group">
+      <label>CDN 加速域名（可选）</label>
+      <input type="text" id="oss-cdn" placeholder="cdn.showcomefu.com">
+      <div class="hint">已绑定 CDN 域名时填写，文件 URL 将使用此域名</div>
+    </div>
+    <div id="oss-status" class="status-msg"></div>
+    <div class="btn-row">
+      <button class="btn btn-outline" onclick="goStep(2)">上一步</button>
+      <button class="btn btn-test" onclick="testOss()">测试连接</button>
+      <button class="btn btn-primary" onclick="goStep(4)">下一步</button>
+    </div>
+    <div class="skip-link" onclick="skipOss()">暂时跳过 OSS 配置，稍后在后台设置</div>
+  </div>
+
+  <!-- Step 4: 确认 & 执行 -->
+  <div class="card step-panel" id="step-4" style="display:none">
+    <h2>4. 确认配置</h2>
+    <p class="desc">请确认以下配置信息，点击「开始初始化」执行安装</p>
+    <div id="summary" style="font-size:14px;line-height:2"></div>
+    <div id="init-status" class="status-msg"></div>
+    <div class="btn-row">
+      <button class="btn btn-outline" onclick="goStep(3)">上一步</button>
+      <button class="btn btn-primary" onclick="doInit()" id="btn-init">开始初始化</button>
+    </div>
+  </div>
+
+  <!-- 完成页 -->
+  <div class="card result-card" id="step-done" style="display:none">
+    <div class="icon">&#x2705;</div>
+    <h2>初始化完成</h2>
+    <p>系统已就绪，请前往管理后台登录</p>
+    <button class="btn btn-primary" onclick="location.href='/admin'" style="padding:12px 32px;font-size:16px">进入管理后台</button>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+let currentStep = 1;
+let dbOk = false;
+let ossSkipped = false;
+
+function goStep(n) {
+  document.querySelectorAll('.step-panel').forEach(el => el.style.display = 'none');
+  const target = $('step-' + n);
+  if (target) target.style.display = 'block';
+  currentStep = n;
+
+  document.querySelectorAll('.step-dot').forEach(dot => {
+    const s = parseInt(dot.dataset.step);
+    dot.classList.toggle('active', s === n);
+    dot.classList.toggle('done', s < n);
+  });
+
+  if (n === 4) renderSummary();
+}
+
+async function testDb() {
+  const st = $('db-status');
+  st.className = 'status-msg info';
+  st.textContent = '正在连接数据库...';
+  st.style.display = 'block';
+
+  try {
+    const res = await fetch('/api/setup/test-db', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        host: $('db-host').value, port: $('db-port').value,
+        name: $('db-name').value, user: $('db-user').value,
+        password: $('db-pass').value
+      })
+    });
+    const data = await res.json();
+    if (data.ok) {
+      st.className = 'status-msg ok';
+      st.textContent = data.message;
+      dbOk = true;
+      $('btn-db-next').disabled = false;
+    } else {
+      st.className = 'status-msg err';
+      st.textContent = data.error;
+    }
+  } catch (e) {
+    st.className = 'status-msg err';
+    st.textContent = '请求失败: ' + e.message;
+  }
+}
+
+function validateAdmin() {
+  const st = $('admin-status');
+  const user = $('admin-user').value.trim();
+  const pass = $('admin-pass').value;
+  const pass2 = $('admin-pass2').value;
+
+  if (!user) { st.className='status-msg err'; st.textContent='用户名不能为空'; st.style.display='block'; return; }
+  if (pass.length < 8) { st.className='status-msg err'; st.textContent='密码至少 8 位'; st.style.display='block'; return; }
+  if (pass !== pass2) { st.className='status-msg err'; st.textContent='两次输入的密码不一致'; st.style.display='block'; return; }
+
+  st.style.display = 'none';
+  goStep(3);
+}
+
+async function testOss() {
+  const st = $('oss-status');
+  const bucket = $('oss-bucket').value.trim();
+  const ak = $('oss-ak').value.trim();
+  const sk = $('oss-sk').value.trim();
+
+  if (!bucket || !ak || !sk) {
+    st.className = 'status-msg err';
+    st.textContent = '请先填写 Bucket、AccessKey ID、AccessKey Secret';
+    st.style.display = 'block';
+    return;
+  }
+
+  st.className = 'status-msg info';
+  st.textContent = '正在连接 OSS...';
+  st.style.display = 'block';
+
+  try {
+    const res = await fetch('/api/setup/test-oss', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        region: $('oss-region').value, bucket,
+        accessKeyId: ak, accessKeySecret: sk,
+        endpoint: $('oss-endpoint').value.trim()
+      })
+    });
+    const data = await res.json();
+    if (data.ok) {
+      st.className = 'status-msg ok';
+      st.textContent = data.message;
+      ossSkipped = false;
+    } else {
+      st.className = 'status-msg err';
+      st.textContent = data.error;
+    }
+  } catch (e) {
+    st.className = 'status-msg err';
+    st.textContent = '请求失败: ' + e.message;
+  }
+}
+
+function skipOss() {
+  ossSkipped = true;
+  goStep(4);
+}
+
+function renderSummary() {
+  const lines = [
+    `<b>数据库：</b>${$('db-user').value}@${$('db-host').value}:${$('db-port').value}/${$('db-name').value}`,
+    `<b>管理员：</b>${$('admin-user').value}（${$('admin-display').value || '超级管理员'}）`,
+  ];
+  if (ossSkipped || !$('oss-bucket').value.trim()) {
+    lines.push(`<b>OSS：</b><span style="color:var(--text-dim)">未配置（稍后可在后台设置）</span>`);
+  } else {
+    lines.push(`<b>OSS：</b>${$('oss-region').value} / ${$('oss-bucket').value}`);
+  }
+  $('summary').innerHTML = lines.join('<br>');
+}
+
+async function doInit() {
+  const btn = $('btn-init');
+  const st = $('init-status');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>正在初始化...';
+  st.className = 'status-msg info';
+  st.textContent = '正在创建数据库表、写入配置...';
+  st.style.display = 'block';
+
+  const payload = {
+    db: {
+      host: $('db-host').value, port: $('db-port').value,
+      name: $('db-name').value, user: $('db-user').value,
+      password: $('db-pass').value
+    },
+    admin: {
+      username: $('admin-user').value.trim(),
+      password: $('admin-pass').value,
+      displayName: $('admin-display').value.trim()
+    }
+  };
+
+  if (!ossSkipped && $('oss-bucket').value.trim()) {
+    payload.oss = {
+      region: $('oss-region').value,
+      bucket: $('oss-bucket').value.trim(),
+      accessKeyId: $('oss-ak').value.trim(),
+      accessKeySecret: $('oss-sk').value.trim(),
+      endpoint: $('oss-endpoint').value.trim(),
+      cdnDomain: $('oss-cdn').value.trim()
+    };
+  }
+
+  try {
+    const res = await fetch('/api/setup/init', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (data.ok) {
+      document.querySelectorAll('.step-panel').forEach(el => el.style.display = 'none');
+      $('step-done').style.display = 'block';
+      document.querySelectorAll('.step-dot').forEach(d => d.classList.add('done'));
+    } else {
+      st.className = 'status-msg err';
+      st.textContent = data.error || '初始化失败';
+      btn.disabled = false;
+      btn.textContent = '重试';
+    }
+  } catch (e) {
+    st.className = 'status-msg err';
+    st.textContent = '请求异常: ' + e.message;
+    btn.disabled = false;
+    btn.textContent = '重试';
+  }
+}
+
+// 页面加载时检查是否已安装
+(async () => {
+  try {
+    const res = await fetch('/api/setup/status');
+    const data = await res.json();
+    if (data.installed) {
+      document.querySelector('.setup-container').innerHTML =
+        '<div class="card result-card"><div class="icon">&#x2705;</div>' +
+        '<h2>系统已初始化</h2><p>无需重复配置</p>' +
+        '<button class="btn btn-primary" onclick="location.href=\'/admin\'" style="padding:12px 32px">进入管理后台</button></div>';
+    }
+  } catch {}
+})();
+</script>
+</body>
+</html>

@@ -70,6 +70,10 @@ web_modules/
 .env.*
 !.env.example
 
+# ShowCome 部署生成文件
+installed.lock
+*.tar.gz
+
 # parcel-bundler cache (https://parceljs.org/)
 .cache
 .parcel-cache

@@ -1,53 +1,86 @@
 // =============================================================================
-//  兽可梦 ShowCome — Node.js API 服务
-//  /opt/showcomefu-api/server.js
-//  依赖：express mysql2 bcryptjs jsonwebtoken cors helmet express-rate-limit dotenv
+//  兽可梦 ShowCome — Node.js API 服务（生产版）
+//  特性：首次部署初始化向导 / 阿里云 OSS 集成 / 数据库迁移 / JWT 认证
 // =============================================================================
 'use strict';
 
-require('dotenv').config();
-const express     = require('express');
-const mysql       = require('mysql2/promise');
-const bcrypt      = require('bcryptjs');
-const jwt         = require('jsonwebtoken');
-const cors        = require('cors');
-const helmet      = require('helmet');
-const rateLimit   = require('express-rate-limit');
+const fs        = require('fs');
+const path      = require('path');
+const express   = require('express');
+const cors      = require('cors');
+const helmet    = require('helmet');
+const rateLimit = require('express-rate-limit');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
 
-// ── Middleware ────────────────────────────────────────────────────────────────
+const CONFIG_FILE  = path.join(__dirname, '.env');
+const LOCK_FILE    = path.join(__dirname, 'installed.lock');
+const SETUP_HTML   = path.join(__dirname, 'setup.html');
+
+// ── 应用状态 ──
+let isInstalled = fs.existsSync(LOCK_FILE);
+let pool = null;
+
+// ── 基础中间件（始终启用） ──
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(cors({
   origin: process.env.FRONTEND_URL || '*',
   methods: ['GET','POST','PUT','PATCH','DELETE','OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
-app.use(express.json({ limit: '5mb' }));
+app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: false }));
-
-// 信任 Nginx 代理的真实 IP
 app.set('trust proxy', 1);
 
-// ── 连接池 ────────────────────────────────────────────────────────────────────
-const pool = mysql.createPool({
-  host:             process.env.DB_HOST     || '127.0.0.1',
-  port:             parseInt(process.env.DB_PORT || '3306'),
-  database:         process.env.DB_NAME,
-  user:             process.env.DB_USER,
-  password:         process.env.DB_PASS,
-  waitForConnections: true,
-  connectionLimit:  15,
-  queueLimit:       0,
-  charset:          'utf8mb4',
-  timezone:         '+08:00',
-});
-
-// ── 工具函数 ──────────────────────────────────────────────────────────────────
+// ── 工具函数 ──
 const asyncHandler = fn => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 
-async function log(user, action, detail, ip) {
+function loadEnvFile() {
+  if (!fs.existsSync(CONFIG_FILE)) return;
+  const content = fs.readFileSync(CONFIG_FILE, 'utf8');
+  content.split('\n').forEach(line => {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) return;
+    const eqIdx = trimmed.indexOf('=');
+    if (eqIdx < 0) return;
+    const key = trimmed.slice(0, eqIdx).trim();
+    const val = trimmed.slice(eqIdx + 1).trim();
+    if (!process.env[key]) process.env[key] = val;
+  });
+}
+
+function initDbPool() {
+  const mysql = require('mysql2/promise');
+  pool = mysql.createPool({
+    host:             process.env.DB_HOST || '127.0.0.1',
+    port:             parseInt(process.env.DB_PORT || '3306'),
+    database:         process.env.DB_NAME,
+    user:             process.env.DB_USER,
+    password:         process.env.DB_PASS,
+    waitForConnections: true,
+    connectionLimit:  15,
+    queueLimit:       0,
+    charset:          'utf8mb4',
+    timezone:         '+08:00',
+  });
+  return pool;
+}
+
+function getOssClient() {
+  const OSS = require('ali-oss');
+  return new OSS({
+    region:          process.env.OSS_REGION,
+    accessKeyId:     process.env.OSS_ACCESS_KEY_ID,
+    accessKeySecret: process.env.OSS_ACCESS_KEY_SECRET,
+    bucket:          process.env.OSS_BUCKET,
+    endpoint:        process.env.OSS_ENDPOINT || undefined,
+    secure:          true,
+  });
+}
+
+async function logAction(user, action, detail, ip) {
+  if (!pool) return;
   try {
     await pool.query(
       'INSERT INTO activity_log (user,action,detail,ip) VALUES (?,?,?,?)',
@@ -56,9 +89,200 @@ async function log(user, action, detail, ip) {
   } catch { /* 日志失败不影响主流程 */ }
 }
 
-// ── 限流配置 ──────────────────────────────────────────────────────────────────
+// ── 静态文件服务（开发模式或不经过 Nginx 时使用） ──
+app.use(express.static(__dirname, {
+  index: 'index.html',
+  extensions: ['html'],
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('.html')) res.setHeader('Cache-Control', 'no-cache');
+  }
+}));
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  安装检测中间件：未安装时仅放行 /api/setup/* 和静态资源
+// ══════════════════════════════════════════════════════════════════════════════
+app.use((req, res, next) => {
+  if (isInstalled) return next();
+
+  if (req.path.startsWith('/api/setup')) return next();
+
+  if (req.path === '/setup' || req.path === '/setup.html') {
+    return res.sendFile(SETUP_HTML);
+  }
+
+  if (req.path === '/admin' || req.path === '/admin.html') {
+    return res.redirect('/setup');
+  }
+
+  if (req.path.startsWith('/api/')) {
+    return res.status(503).json({ error: '系统尚未初始化，请先访问 /setup 完成配置' });
+  }
+
+  next();
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  Setup API — 首次初始化
+// ══════════════════════════════════════════════════════════════════════════════
+app.get('/api/setup/status', (req, res) => {
+  res.json({ installed: isInstalled });
+});
+
+app.post('/api/setup/test-db', asyncHandler(async (req, res) => {
+  if (isInstalled) return res.status(403).json({ error: '系统已初始化' });
+
+  const { host, port, name, user, password } = req.body;
+  const mysql = require('mysql2/promise');
+
+  let conn;
+  try {
+    conn = await mysql.createConnection({
+      host, port: parseInt(port || '3306'), user, password,
+      charset: 'utf8mb4', connectTimeout: 5000,
+    });
+
+    const [dbs] = await conn.query('SHOW DATABASES LIKE ?', [name]);
+    const dbExists = dbs.length > 0;
+
+    if (!dbExists) {
+      await conn.query(`CREATE DATABASE \`${name}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`);
+    }
+
+    res.json({ ok: true, dbExists, message: dbExists ? '数据库连接成功' : '数据库连接成功，已自动创建数据库' });
+  } catch (err) {
+    res.status(400).json({ ok: false, error: `数据库连接失败: ${err.message}` });
+  } finally {
+    if (conn) await conn.end();
+  }
+}));
+
+app.post('/api/setup/test-oss', asyncHandler(async (req, res) => {
+  if (isInstalled) return res.status(403).json({ error: '系统已初始化' });
+
+  const { region, bucket, accessKeyId, accessKeySecret, endpoint } = req.body;
+  const OSS = require('ali-oss');
+
+  try {
+    const client = new OSS({
+      region, accessKeyId, accessKeySecret, bucket,
+      endpoint: endpoint || undefined, secure: true,
+    });
+    const result = await client.getBucketInfo(bucket);
+    res.json({ ok: true, message: 'OSS 连接成功', location: result.bucket?.Location });
+  } catch (err) {
+    res.status(400).json({ ok: false, error: `OSS 连接失败: ${err.message}` });
+  }
+}));
+
+app.post('/api/setup/init', asyncHandler(async (req, res) => {
+  if (isInstalled) return res.status(403).json({ error: '系统已初始化，请勿重复操作' });
+
+  const { db, admin, oss } = req.body;
+  if (!db?.host || !db?.name || !db?.user || !db?.password) {
+    return res.status(400).json({ error: '数据库配置不完整' });
+  }
+  if (!admin?.username || !admin?.password || admin.password.length < 8) {
+    return res.status(400).json({ error: '管理员用户名必填，密码至少 8 位' });
+  }
+
+  const mysql  = require('mysql2/promise');
+  const bcrypt = require('bcryptjs');
+  const crypto = require('crypto');
+
+  // 1) 生成 JWT 密钥
+  const jwtSecret = crypto.randomBytes(48).toString('hex');
+
+  // 2) 写入 .env
+  const envContent = [
+    `PORT=${PORT}`,
+    `DB_HOST=${db.host}`,
+    `DB_PORT=${db.port || 3306}`,
+    `DB_NAME=${db.name}`,
+    `DB_USER=${db.user}`,
+    `DB_PASS=${db.password}`,
+    `JWT_SECRET=${jwtSecret}`,
+    `JWT_EXPIRES=12h`,
+    `FRONTEND_URL=*`,
+    `NODE_ENV=production`,
+    '',
+    `OSS_REGION=${oss?.region || ''}`,
+    `OSS_BUCKET=${oss?.bucket || ''}`,
+    `OSS_ACCESS_KEY_ID=${oss?.accessKeyId || ''}`,
+    `OSS_ACCESS_KEY_SECRET=${oss?.accessKeySecret || ''}`,
+    `OSS_ENDPOINT=${oss?.endpoint || ''}`,
+    `OSS_CDN_DOMAIN=${oss?.cdnDomain || ''}`,
+  ].join('\n');
+
+  fs.writeFileSync(CONFIG_FILE, envContent, 'utf8');
+  fs.chmodSync(CONFIG_FILE, '600');
+
+  // 重新加载环境变量
+  process.env.DB_HOST     = db.host;
+  process.env.DB_PORT     = String(db.port || 3306);
+  process.env.DB_NAME     = db.name;
+  process.env.DB_USER     = db.user;
+  process.env.DB_PASS     = db.password;
+  process.env.JWT_SECRET  = jwtSecret;
+  process.env.JWT_EXPIRES = '12h';
+  process.env.NODE_ENV    = 'production';
+  if (oss?.region)          process.env.OSS_REGION            = oss.region;
+  if (oss?.bucket)          process.env.OSS_BUCKET            = oss.bucket;
+  if (oss?.accessKeyId)     process.env.OSS_ACCESS_KEY_ID     = oss.accessKeyId;
+  if (oss?.accessKeySecret) process.env.OSS_ACCESS_KEY_SECRET = oss.accessKeySecret;
+  if (oss?.endpoint)        process.env.OSS_ENDPOINT          = oss.endpoint;
+  if (oss?.cdnDomain)       process.env.OSS_CDN_DOMAIN        = oss.cdnDomain;
+
+  // 3) 初始化数据库连接并运行迁移
+  try {
+    initDbPool();
+    const { runMigrations } = require('./migrate');
+    const migrationResult = await runMigrations(pool);
+
+    // 4) 创建管理员账号
+    const hash = await bcrypt.hash(admin.password, 12);
+    await pool.query(
+      `INSERT INTO admins (username, password, display_name, role)
+       VALUES (?, ?, ?, 'admin')
+       ON DUPLICATE KEY UPDATE password=?, display_name=?, updated_at=NOW()`,
+      [admin.username, hash, admin.displayName || '超级管理员', hash, admin.displayName || '超级管理员']
+    );
+
+    // 5) 写入锁文件
+    fs.writeFileSync(LOCK_FILE, JSON.stringify({
+      installedAt: new Date().toISOString(),
+      version: '1.1.0',
+      migrationsApplied: migrationResult.total,
+    }), 'utf8');
+
+    isInstalled = true;
+
+    await logAction('system', '系统初始化完成', {
+      admin: admin.username,
+      dbHost: db.host,
+      ossEnabled: !!(oss?.bucket),
+    }, req.ip);
+
+    res.json({
+      ok: true,
+      message: '系统初始化成功！请刷新页面后登录管理后台。',
+      migrations: migrationResult,
+    });
+
+  } catch (err) {
+    // 初始化失败，清理锁文件
+    if (fs.existsSync(LOCK_FILE)) fs.unlinkSync(LOCK_FILE);
+    isInstalled = false;
+    throw err;
+  }
+}));
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  以下路由仅在 isInstalled=true 时生效（由上方中间件守护）
+// ══════════════════════════════════════════════════════════════════════════════
+
+// ── 限流配置 ──
 const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 分钟
+  windowMs: 15 * 60 * 1000,
   max: 10,
   message: { error: '登录尝试次数过多，请 15 分钟后重试' },
   standardHeaders: true,
@@ -66,22 +290,22 @@ const authLimiter = rateLimit({
 });
 
 const apiLimiter = rateLimit({
-  windowMs: 60 * 1000, // 1 分钟
+  windowMs: 60 * 1000,
   max: 60,
   message: { error: '请求过于频繁，请稍后重试' },
 });
 
 app.use('/api/', apiLimiter);
 
-// ── JWT 认证中间件 ─────────────────────────────────────────────────────────────
+// ── JWT 认证中间件 ──
 function authRequired(req, res, next) {
   const auth = req.headers.authorization;
   if (!auth || !auth.startsWith('Bearer ')) {
     return res.status(401).json({ error: '未提供认证令牌' });
   }
-  const token = auth.split(' ')[1];
   try {
-    req.user = jwt.verify(token, process.env.JWT_SECRET);
+    const jwt = require('jsonwebtoken');
+    req.user = jwt.verify(auth.split(' ')[1], process.env.JWT_SECRET);
     next();
   } catch (e) {
     const msg = e.name === 'TokenExpiredError' ? 'Token 已过期，请重新登录' : 'Token 无效';
@@ -90,54 +314,51 @@ function authRequired(req, res, next) {
 }
 
 function adminOnly(req, res, next) {
-  if (req.user?.role !== 'admin') {
-    return res.status(403).json({ error: '需要管理员权限' });
-  }
+  if (req.user?.role !== 'admin') return res.status(403).json({ error: '需要管理员权限' });
   next();
 }
 
 function notViewer(req, res, next) {
-  if (req.user?.role === 'viewer') {
-    return res.status(403).json({ error: '只读账号不允许此操作' });
-  }
+  if (req.user?.role === 'viewer') return res.status(403).json({ error: '只读账号不允许此操作' });
   next();
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-//  路由：健康检查
+//  健康检查 & 版本信息
 // ══════════════════════════════════════════════════════════════════════════════
 app.get('/api/health', asyncHandler(async (req, res) => {
+  if (!pool) return res.json({ status: 'not_installed' });
   await pool.query('SELECT 1');
   res.json({ status: 'ok', time: new Date().toISOString(), env: process.env.NODE_ENV });
 }));
 
-// ══════════════════════════════════════════════════════════════════════════════
-//  路由：认证
-// ══════════════════════════════════════════════════════════════════════════════
-// POST /api/auth/login
-app.post('/api/auth/login', authLimiter, asyncHandler(async (req, res) => {
-  const { username, password } = req.body;
-  if (!username || !password) {
-    return res.status(400).json({ error: '用户名和密码必填' });
-  }
+app.get('/api/version', (req, res) => {
+  const lockData = fs.existsSync(LOCK_FILE) ? JSON.parse(fs.readFileSync(LOCK_FILE, 'utf8')) : {};
+  res.json({ version: '1.1.0', installed: isInstalled, ...lockData });
+});
 
-  const [rows] = await pool.query(
-    'SELECT * FROM admins WHERE username=? AND active=1', [username]
-  );
+// ══════════════════════════════════════════════════════════════════════════════
+//  认证
+// ══════════════════════════════════════════════════════════════════════════════
+app.post('/api/auth/login', authLimiter, asyncHandler(async (req, res) => {
+  const bcrypt = require('bcryptjs');
+  const jwt    = require('jsonwebtoken');
+  const { username, password } = req.body;
+  if (!username || !password) return res.status(400).json({ error: '用户名和密码必填' });
+
+  const [rows] = await pool.query('SELECT * FROM admins WHERE username=? AND active=1', [username]);
   const admin = rows[0];
 
   if (!admin || !(await bcrypt.compare(password, admin.password))) {
-    await log(username, '登录失败', { reason: '账号或密码错误' }, req.ip);
+    await logAction(username, '登录失败', { reason: '账号或密码错误' }, req.ip);
     return res.status(401).json({ error: '账号或密码错误' });
   }
 
   await pool.query('UPDATE admins SET last_login=NOW(), last_ip=? WHERE id=?', [req.ip, admin.id]);
-  await log(admin.username, '登录成功', null, req.ip);
+  await logAction(admin.username, '登录成功', null, req.ip);
 
   const payload = { id: admin.id, username: admin.username, role: admin.role };
-  const token = jwt.sign(payload, process.env.JWT_SECRET, {
-    expiresIn: process.env.JWT_EXPIRES || '12h',
-  });
+  const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES || '12h' });
 
   res.json({
     token,
@@ -145,13 +366,11 @@ app.post('/api/auth/login', authLimiter, asyncHandler(async (req, res) => {
   });
 }));
 
-// POST /api/auth/logout
 app.post('/api/auth/logout', authRequired, asyncHandler(async (req, res) => {
-  await log(req.user.username, '登出', null, req.ip);
+  await logAction(req.user.username, '登出', null, req.ip);
   res.json({ ok: true });
 }));
 
-// GET /api/auth/me
 app.get('/api/auth/me', authRequired, asyncHandler(async (req, res) => {
   const [rows] = await pool.query(
     'SELECT id,username,display_name,role,email,last_login FROM admins WHERE id=?',
@@ -162,54 +381,40 @@ app.get('/api/auth/me', authRequired, asyncHandler(async (req, res) => {
 }));
 
 // ══════════════════════════════════════════════════════════════════════════════
-//  路由：CMS 内容（键值存储）
+//  CMS 内容
 // ══════════════════════════════════════════════════════════════════════════════
-// GET /api/cms/:key  — 公开（前台读取）
 app.get('/api/cms/:key', asyncHandler(async (req, res) => {
-  const [rows] = await pool.query(
-    'SELECT `value`, updated_at FROM cms_data WHERE `key`=?', [req.params.key]
-  );
+  const [rows] = await pool.query('SELECT `value`, updated_at FROM cms_data WHERE `key`=?', [req.params.key]);
   if (!rows[0]) return res.status(404).json({ error: '内容不存在' });
-
-  try {
-    res.json(JSON.parse(rows[0].value));
-  } catch {
-    res.json({ raw: rows[0].value });
-  }
+  try { res.json(JSON.parse(rows[0].value)); }
+  catch { res.json({ raw: rows[0].value }); }
 }));
 
-// GET /api/cms  — 列出所有键（需登录）
 app.get('/api/cms', authRequired, asyncHandler(async (req, res) => {
-  const [rows] = await pool.query(
-    'SELECT `key`, updated_at, updated_by FROM cms_data ORDER BY `key`'
-  );
+  const [rows] = await pool.query('SELECT `key`, updated_at, updated_by FROM cms_data ORDER BY `key`');
   res.json(rows);
 }));
 
-// PUT /api/cms/:key  — 写入（需登录，非只读）
 app.put('/api/cms/:key', authRequired, notViewer, asyncHandler(async (req, res) => {
   const value = JSON.stringify(req.body);
   await pool.query(
-    `INSERT INTO cms_data (\`key\`,\`value\`,updated_by)
-     VALUES (?,?,?)
+    `INSERT INTO cms_data (\`key\`,\`value\`,updated_by) VALUES (?,?,?)
      ON DUPLICATE KEY UPDATE \`value\`=?, updated_by=?, updated_at=NOW()`,
     [req.params.key, value, req.user.username, value, req.user.username]
   );
-  await log(req.user.username, `更新CMS内容`, { key: req.params.key }, req.ip);
+  await logAction(req.user.username, '更新CMS内容', { key: req.params.key }, req.ip);
   res.json({ ok: true, key: req.params.key });
 }));
 
-// DELETE /api/cms/:key  — 删除（仅管理员）
 app.delete('/api/cms/:key', authRequired, adminOnly, asyncHandler(async (req, res) => {
   await pool.query('DELETE FROM cms_data WHERE `key`=?', [req.params.key]);
-  await log(req.user.username, `删除CMS内容`, { key: req.params.key }, req.ip);
+  await logAction(req.user.username, '删除CMS内容', { key: req.params.key }, req.ip);
   res.json({ ok: true });
 }));
 
 // ══════════════════════════════════════════════════════════════════════════════
-//  路由：定制订单
+//  定制订单
 // ══════════════════════════════════════════════════════════════════════════════
-// POST /api/orders  — 前台提交
 app.post('/api/orders', asyncHandler(async (req, res) => {
   const { nickname, contact, type, budget, species, colorScheme, refUrl, note } = req.body;
   if (!contact) return res.status(400).json({ error: '联系方式必填' });
@@ -225,7 +430,6 @@ app.post('/api/orders', asyncHandler(async (req, res) => {
   res.json({ ok: true, id });
 }));
 
-// GET /api/orders  — 后台查询
 app.get('/api/orders', authRequired, asyncHandler(async (req, res) => {
   const { status, page = 1, limit = 50 } = req.query;
   const offset = (parseInt(page) - 1) * parseInt(limit);
@@ -243,7 +447,6 @@ app.get('/api/orders', authRequired, asyncHandler(async (req, res) => {
   res.json({ total, page: parseInt(page), data: rows });
 }));
 
-// PATCH /api/orders/:id/status
 app.patch('/api/orders/:id/status', authRequired, notViewer, asyncHandler(async (req, res) => {
   const { status, adminNote } = req.body;
   const allowed = ['new','contacted','designing','making','done','cancelled'];
@@ -253,21 +456,19 @@ app.patch('/api/orders/:id/status', authRequired, notViewer, asyncHandler(async 
     'UPDATE orders SET status=?, admin_note=COALESCE(?,admin_note), updated_at=NOW() WHERE id=?',
     [status, adminNote || null, req.params.id]
   );
-  await log(req.user.username, `更新订单状态`, { id: req.params.id, status }, req.ip);
+  await logAction(req.user.username, '更新订单状态', { id: req.params.id, status }, req.ip);
   res.json({ ok: true });
 }));
 
 // ══════════════════════════════════════════════════════════════════════════════
-//  路由：媒体文件
+//  媒体文件 & OSS 上传
 // ══════════════════════════════════════════════════════════════════════════════
 app.get('/api/media', authRequired, asyncHandler(async (req, res) => {
   const { type, q } = req.query;
   const conditions = [];
   const params = [];
-
-  if (type)  { conditions.push('type=?'); params.push(type); }
-  if (q)     { conditions.push('name LIKE ?'); params.push(`%${q}%`); }
-
+  if (type) { conditions.push('type=?'); params.push(type); }
+  if (q)    { conditions.push('name LIKE ?'); params.push(`%${q}%`); }
   const where = conditions.length ? 'WHERE ' + conditions.join(' AND ') : '';
   const [rows] = await pool.query(`SELECT * FROM media ${where} ORDER BY created_at DESC`, params);
   res.json(rows);
@@ -287,12 +488,70 @@ app.post('/api/media', authRequired, notViewer, asyncHandler(async (req, res) =>
 }));
 
 app.delete('/api/media/:id', authRequired, notViewer, asyncHandler(async (req, res) => {
+  const [rows] = await pool.query('SELECT storage_key, storage FROM media WHERE id=?', [req.params.id]);
+  const item = rows[0];
+
+  if (item?.storage === 'oss' && item?.storage_key && process.env.OSS_BUCKET) {
+    try {
+      const client = getOssClient();
+      await client.delete(item.storage_key);
+    } catch { /* OSS 删除失败不阻塞 */ }
+  }
+
   await pool.query('DELETE FROM media WHERE id=?', [req.params.id]);
   res.json({ ok: true });
 }));
 
+// OSS 签名上传（前端直传 OSS）
+app.post('/api/oss/sign', authRequired, notViewer, asyncHandler(async (req, res) => {
+  if (!process.env.OSS_BUCKET) {
+    return res.status(400).json({ error: 'OSS 未配置' });
+  }
+
+  const { filename, contentType } = req.body;
+  const ext = path.extname(filename || '.jpg');
+  const date = new Date();
+  const dir = `media/${date.getFullYear()}/${String(date.getMonth()+1).padStart(2,'0')}`;
+  const key = `${dir}/${Date.now()}_${Math.random().toString(36).slice(2,8)}${ext}`;
+
+  const client = getOssClient();
+  const policy = {
+    expiration: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+    conditions: [
+      { bucket: process.env.OSS_BUCKET },
+      ['content-length-range', 0, 50 * 1024 * 1024],
+      ['starts-with', '$key', dir],
+    ],
+  };
+  const formData = client.calculatePostSignature(policy);
+
+  const cdnDomain = process.env.OSS_CDN_DOMAIN;
+  const host = cdnDomain
+    ? `https://${cdnDomain}`
+    : `https://${process.env.OSS_BUCKET}.${process.env.OSS_REGION}.aliyuncs.com`;
+
+  res.json({
+    host,
+    key,
+    policy: formData.policy,
+    signature: formData.Signature,
+    OSSAccessKeyId: process.env.OSS_ACCESS_KEY_ID,
+    url: `${host}/${key}`,
+  });
+}));
+
+// OSS 配置检查
+app.get('/api/oss/status', authRequired, (req, res) => {
+  res.json({
+    enabled: !!(process.env.OSS_BUCKET && process.env.OSS_ACCESS_KEY_ID),
+    region: process.env.OSS_REGION || '',
+    bucket: process.env.OSS_BUCKET || '',
+    cdnDomain: process.env.OSS_CDN_DOMAIN || '',
+  });
+});
+
 // ══════════════════════════════════════════════════════════════════════════════
-//  路由：管理员账号（仅超级管理员）
+//  管理员账号（仅超级管理员）
 // ══════════════════════════════════════════════════════════════════════════════
 app.get('/api/admins', authRequired, adminOnly, asyncHandler(async (req, res) => {
   const [rows] = await pool.query(
@@ -302,6 +561,7 @@ app.get('/api/admins', authRequired, adminOnly, asyncHandler(async (req, res) =>
 }));
 
 app.post('/api/admins', authRequired, adminOnly, asyncHandler(async (req, res) => {
+  const bcrypt = require('bcryptjs');
   const { username, password, role, displayName, email } = req.body;
   if (!username || !password) return res.status(400).json({ error: '用户名密码必填' });
   if (password.length < 8) return res.status(400).json({ error: '密码至少 8 位' });
@@ -311,11 +571,12 @@ app.post('/api/admins', authRequired, adminOnly, asyncHandler(async (req, res) =
     'INSERT INTO admins (username,password,display_name,role,email) VALUES (?,?,?,?,?)',
     [username, hash, displayName, role||'editor', email]
   );
-  await log(req.user.username, '创建管理员', { username, role }, req.ip);
+  await logAction(req.user.username, '创建管理员', { username, role }, req.ip);
   res.json({ ok: true });
 }));
 
 app.patch('/api/admins/:id', authRequired, adminOnly, asyncHandler(async (req, res) => {
+  const bcrypt = require('bcryptjs');
   const { password, role, displayName, email, active } = req.body;
   const updates = [];
   const params = [];
@@ -331,12 +592,34 @@ app.patch('/api/admins/:id', authRequired, adminOnly, asyncHandler(async (req, r
   updates.push('updated_at=NOW()');
   params.push(req.params.id);
   await pool.query(`UPDATE admins SET ${updates.join(',')} WHERE id=?`, params);
-  await log(req.user.username, '更新管理员', { id: req.params.id }, req.ip);
+  await logAction(req.user.username, '更新管理员', { id: req.params.id }, req.ip);
   res.json({ ok: true });
 }));
 
 // ══════════════════════════════════════════════════════════════════════════════
-//  路由：操作日志
+//  数据库迁移管理（管理员 API）
+// ══════════════════════════════════════════════════════════════════════════════
+app.get('/api/migrations', authRequired, adminOnly, asyncHandler(async (req, res) => {
+  const { getAppliedMigrations, getPendingMigrations, ensureMigrationsTable } = require('./migrate');
+  await ensureMigrationsTable(pool);
+  const applied = await getAppliedMigrations(pool);
+  const pending = getPendingMigrations(applied);
+
+  res.json({
+    applied: Array.from(applied.values()),
+    pending: pending.map(m => ({ version: m.version, name: m.name })),
+  });
+}));
+
+app.post('/api/migrations/run', authRequired, adminOnly, asyncHandler(async (req, res) => {
+  const { runMigrations } = require('./migrate');
+  const result = await runMigrations(pool);
+  await logAction(req.user.username, '执行数据库迁移', result, req.ip);
+  res.json({ ok: true, ...result });
+}));
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  操作日志
 // ══════════════════════════════════════════════════════════════════════════════
 app.get('/api/logs', authRequired, asyncHandler(async (req, res) => {
   const [rows] = await pool.query(
@@ -355,22 +638,32 @@ app.use((req, res) => {
 // eslint-disable-next-line no-unused-vars
 app.use((err, req, res, next) => {
   console.error(`[${new Date().toISOString()}] ERROR`, err.message);
-
-  // MySQL 唯一键冲突
   if (err.code === 'ER_DUP_ENTRY') {
     return res.status(409).json({ error: '数据已存在，请检查唯一字段' });
   }
-
   res.status(500).json({
     error: process.env.NODE_ENV === 'production' ? '服务器内部错误' : err.message
   });
 });
 
-// ── 启动 ──────────────────────────────────────────────────────────────────────
-app.listen(PORT, '127.0.0.1', () => {
-  console.log(`[${new Date().toISOString()}] ShowCome API 启动于 127.0.0.1:${PORT}`);
-  console.log(`  NODE_ENV: ${process.env.NODE_ENV}`);
-  console.log(`  DB:       ${process.env.DB_HOST}/${process.env.DB_NAME}`);
-});
+// ── 启动 ──
+function boot() {
+  loadEnvFile();
 
+  if (isInstalled && process.env.DB_NAME) {
+    initDbPool();
+    console.log(`  DB: ${process.env.DB_HOST}/${process.env.DB_NAME}`);
+  }
+
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`[${new Date().toISOString()}] ShowCome API 启动于 0.0.0.0:${PORT}`);
+    console.log(`  已安装: ${isInstalled}`);
+    console.log(`  环境: ${process.env.NODE_ENV || 'development'}`);
+    if (!isInstalled) {
+      console.log(`  ⚡ 请访问 http://localhost:${PORT}/setup 完成首次初始化`);
+    }
+  });
+}
+
+boot();
 module.exports = app;

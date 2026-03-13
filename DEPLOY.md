@@ -1,957 +1,505 @@
-# 兽可梦 ShowCome · 完整生产部署手册
+# 兽可梦 ShowCome · 生产部署手册
 
-> 适用系统：Ubuntu 22.04 LTS / Debian 12  
-> 架构：纯静态 HTML + Nginx + 可选 Node.js API 层  
-> 预计耗时：30 ~ 60 分钟
-
----
-
-## 一、架构说明
-
-```
-用户浏览器
-    │
-    ▼
-[Cloudflare CDN] ← 可选，但强烈推荐
-    │
-    ▼
-[Nginx]  :80 / :443
-    ├─ /           → index.html    （前台展示）
-    ├─ /admin      → admin.html    （后台管理，需 Basic Auth 双重保护）
-    └─ /api        → Node.js :3000  （可选：持久化 API，替代 localStorage）
-```
-
-### 数据存储说明
-
-| 存储层 | 用途 | 当前实现 | 推荐生产实现 |
-|--------|------|----------|-------------|
-| CMS 内容 | 站点配置、作品、商品等 | `localStorage` | SQLite / MySQL |
-| 定制订单 | 用户提交表单 | `localStorage` | MySQL + 邮件通知 |
-| 媒体文件 | 图片/视频资源 | URL 引用 | 对象存储 OSS/COS |
-| 管理员账号 | 后台登录 | `localStorage` | bcrypt + JWT |
-
-> **当前版本（localStorage 模式）** 可直接部署为纯静态站，无需数据库。  
-> 数据保存在访问者浏览器中，适合单人管理场景。  
-> 如需多人协作或数据持久化，参考第六章升级为 API 模式。
+> **部署架构**：Gitee + Jenkins 自动化 CI/CD → CentOS 云服务器  
+> **首次部署**：通过 Web 向导完成初始化配置  
+> **数据库升级**：每次部署自动执行迁移脚本
 
 ---
 
-## 二、服务器环境初始化
+## 架构概览
 
-### 2.1 购买服务器
+```
+开发者 → git push → Gitee 仓库
+                        │
+                    WebHook 触发
+                        │
+                        ▼
+                    Jenkins 服务器
+                    ├─ 拉取代码
+                    ├─ npm install
+                    ├─ 打包制品
+                    ├─ SCP 上传
+                    └─ SSH 远程部署
+                        │
+                        ▼
+                CentOS 生产服务器
+                ├─ /var/www/showcomefu/     ← 静态文件 (Nginx)
+                ├─ /opt/showcomefu/        ← API 服务 (PM2 + Node.js)
+                ├─ MySQL 8                 ← 数据持久化
+                └─ 阿里云 OSS              ← 媒体文件存储
+```
 
-推荐配置（个人工作室）：
+### 技术栈
 
-- **CPU**：2 核
-- **内存**：2 GB
-- **硬盘**：40 GB SSD
-- **带宽**：5 Mbps（按量计费）
-- **系统**：Ubuntu 22.04 LTS 64位
-- **供应商**：阿里云 / 腾讯云 / Vultr
+| 组件 | 技术 |
+|------|------|
+| 前端 | 纯 HTML + CSS + JavaScript（Three.js / GSAP） |
+| 后端 | Node.js 20+ / Express |
+| 数据库 | MySQL 8.0+ |
+| 对象存储 | 阿里云 OSS |
+| Web 服务器 | Nginx |
+| 进程管理 | PM2 |
+| CI/CD | Gitee + Jenkins |
+| 操作系统 | CentOS 7/8/9 |
 
-### 2.2 首次登录与安全加固
+---
+
+## 一、服务器环境初始化（首次）
+
+### 1.1 服务器推荐配置
+
+| 项目 | 推荐 |
+|------|------|
+| CPU | 2 核+ |
+| 内存 | 2 GB+ |
+| 硬盘 | 40 GB SSD |
+| 带宽 | 3-5 Mbps |
+| 系统 | CentOS 7/8/9 或 Rocky Linux |
+
+### 1.2 一键初始化
+
+将仓库中的 `deploy/centos-init.sh` 上传到服务器执行：
 
 ```bash
-# 以 root 登录后，立即执行
+# 上传脚本
+scp deploy/centos-init.sh root@YOUR_SERVER_IP:/tmp/
+
+# SSH 到服务器执行
 ssh root@YOUR_SERVER_IP
-
-# ── 创建普通用户（避免 root 直接操作）──
-adduser deploy
-usermod -aG sudo deploy
-
-# 切换到新用户
-su - deploy
-
-# ── 配置 SSH 密钥登录（在本地机器执行）──
-# 生成密钥对（如果没有）
-ssh-keygen -t ed25519 -C "showcomefu-server"
-
-# 上传公钥到服务器
-ssh-copy-id deploy@YOUR_SERVER_IP
-
-# ── 禁用 root SSH 登录 ──
-sudo nano /etc/ssh/sshd_config
-# 修改以下两行：
-#   PermitRootLogin no
-#   PasswordAuthentication no
-sudo systemctl restart sshd
-
-# ── 配置防火墙 ──
-sudo ufw allow OpenSSH
-sudo ufw allow 80/tcp
-sudo ufw allow 443/tcp
-sudo ufw enable
-sudo ufw status
+bash /tmp/centos-init.sh --domain showcomefu.com --email admin@showcomefu.com --with-mysql
 ```
 
-### 2.3 系统更新与时区
+此脚本将自动完成：
+- 系统更新 & 基础工具安装
+- 防火墙配置（开放 22/80/443）
+- Node.js 20 + PM2 安装
+- Nginx 安装 & 站点配置
+- MySQL 8 安装（`--with-mysql`）
+- SSL 证书申请（Let's Encrypt）
+- 日志轮转配置
+
+### 1.3 MySQL 安全初始化
 
 ```bash
-# 更新系统
-sudo apt update && sudo apt upgrade -y
-
-# 设置时区（北京时间）
-sudo timedatectl set-timezone Asia/Shanghai
-timedatectl status
-
-# 安装常用工具
-sudo apt install -y curl wget git unzip vim htop net-tools
-```
-
----
-
-## 三、安装 Nginx
-
-### 3.1 安装
-
-```bash
-sudo apt install -y nginx
-
-# 启动并设置开机自启
-sudo systemctl start nginx
-sudo systemctl enable nginx
-sudo systemctl status nginx
-
-# 验证：访问 http://YOUR_SERVER_IP 应看到 Nginx 欢迎页
-```
-
-### 3.2 上传站点文件
-
-**方法 A：直接 SCP 上传（推荐初次部署）**
-
-```bash
-# 在本地机器执行
-scp index.html deploy@YOUR_SERVER_IP:/tmp/
-scp admin.html deploy@YOUR_SERVER_IP:/tmp/
-
-# 在服务器上移动文件
-ssh deploy@YOUR_SERVER_IP
-sudo mkdir -p /var/www/showcomefu
-sudo mv /tmp/index.html /var/www/showcomefu/
-sudo mv /tmp/admin.html /var/www/showcomefu/
-sudo chown -R www-data:www-data /var/www/showcomefu
-sudo chmod -R 755 /var/www/showcomefu
-```
-
-**方法 B：Git 部署（推荐持续维护）**
-
-```bash
-# 服务器上
-sudo mkdir -p /var/www/showcomefu
-sudo chown deploy:deploy /var/www/showcomefu
-cd /var/www/showcomefu
-
-# 如果文件在 Git 仓库
-git init
-git remote add origin https://github.com/YOUR_NAME/showcomefu.git
-git pull origin main
-
-# 后续更新只需
-git pull origin main
-sudo systemctl reload nginx
-```
-
-### 3.3 配置 Nginx 虚拟主机
-
-```bash
-# 删除默认站点
-sudo rm /etc/nginx/sites-enabled/default
-
-# 创建站点配置（替换 showcomefu.com 为你的域名）
-sudo nano /etc/nginx/sites-available/showcomefu
-```
-
-粘贴以下配置（先用 HTTP，后续加 HTTPS）：
-
-```nginx
-# /etc/nginx/sites-available/showcomefu
-
-# ── 访问频率限制（防 CC 攻击）──
-limit_req_zone $binary_remote_addr zone=general:10m rate=20r/s;
-limit_req_zone $binary_remote_addr zone=admin:10m rate=5r/s;
-
-server {
-    listen 80;
-    listen [::]:80;
-
-    server_name showcomefu.com www.showcomefu.com;
-
-    # 站点根目录
-    root /var/www/showcomefu;
-    index index.html;
-
-    # 字符集
-    charset utf-8;
-
-    # ── 访问日志 ──
-    access_log /var/log/nginx/showcomefu_access.log;
-    error_log  /var/log/nginx/showcomefu_error.log warn;
-
-    # ── 安全响应头 ──
-    add_header X-Frame-Options "SAMEORIGIN" always;
-    add_header X-Content-Type-Options "nosniff" always;
-    add_header X-XSS-Protection "1; mode=block" always;
-    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
-
-    # ── 前台主站 ──
-    location / {
-        limit_req zone=general burst=30 nodelay;
-        try_files $uri $uri/ /index.html;
-
-        # 静态资源缓存
-        location ~* \.(js|css|png|jpg|jpeg|gif|webp|svg|ico|woff2)$ {
-            expires 30d;
-            add_header Cache-Control "public, immutable";
-        }
-    }
-
-    # ── 后台管理（双重保护）──
-    location /admin {
-        # Nginx Basic Auth（第一层）
-        auth_basic "ShowCome Admin";
-        auth_basic_user_file /etc/nginx/.htpasswd;
-
-        # 频率限制（防暴力破解）
-        limit_req zone=admin burst=10 nodelay;
-
-        # IP 白名单（可选，更安全）
-        # allow 你的固定IP;
-        # deny all;
-
-        try_files $uri $uri/ /admin.html;
-    }
-
-    # ── 禁止访问隐藏文件 ──
-    location ~ /\. {
-        deny all;
-        return 404;
-    }
-
-    # ── 可选：API 反向代理（第六章启用）──
-    # location /api/ {
-    #     proxy_pass http://127.0.0.1:3000/;
-    #     proxy_http_version 1.1;
-    #     proxy_set_header Host $host;
-    #     proxy_set_header X-Real-IP $remote_addr;
-    # }
-}
-```
-
-```bash
-# 启用站点配置
-sudo ln -s /etc/nginx/sites-available/showcomefu /etc/nginx/sites-enabled/
-
-# 测试配置语法
-sudo nginx -t
-
-# 重载 Nginx
-sudo systemctl reload nginx
-```
-
-### 3.4 设置后台 Basic Auth
-
-```bash
-# 安装 htpasswd 工具
-sudo apt install -y apache2-utils
-
-# 创建密码文件（替换 admin 为你想要的用户名）
-sudo htpasswd -c /etc/nginx/.htpasswd admin
-# 输入两次密码后回车
-
-# 查看文件（密码已加密，安全）
-cat /etc/nginx/.htpasswd
-
-# 后续添加更多用户
-# sudo htpasswd /etc/nginx/.htpasswd editor2
-```
-
-> ⚠️ **双重验证**：访问 `/admin` 需先通过 Nginx 的 HTTP Basic Auth，  
-> 再通过页面内的账号密码登录，两道防线确保后台安全。
-
----
-
-## 四、配置 HTTPS（SSL 证书）
-
-### 4.1 域名解析
-
-在你的域名管理后台（阿里云/腾讯云/Cloudflare）添加：
-
-| 记录类型 | 主机记录 | 记录值 |
-|---------|---------|--------|
-| A | @ | YOUR_SERVER_IP |
-| A | www | YOUR_SERVER_IP |
-
-等待 DNS 生效（通常 5-10 分钟）：
-
-```bash
-# 验证解析
-ping showcomefu.com
-nslookup showcomefu.com
-```
-
-### 4.2 申请免费 Let's Encrypt 证书
-
-```bash
-# 安装 Certbot
-sudo apt install -y certbot python3-certbot-nginx
-
-# 申请证书（自动修改 Nginx 配置）
-sudo certbot --nginx -d showcomefu.com -d www.showcomefu.com
-
-# 按提示输入邮箱，同意条款，选择是否强制 HTTPS（建议选 2：强制跳转）
-
-# 验证证书
-sudo certbot certificates
-
-# 测试自动续期
-sudo certbot renew --dry-run
-```
-
-### 4.3 Certbot 自动续期
-
-```bash
-# Certbot 已自动添加 systemd 定时任务，查看确认
-sudo systemctl status certbot.timer
-sudo systemctl list-timers | grep certbot
-
-# 手动查看定时任务
-cat /etc/cron.d/certbot
-```
-
-### 4.4 完整 HTTPS Nginx 配置（certbot 自动生成后的样子）
-
-```nginx
-server {
-    listen 80;
-    server_name showcomefu.com www.showcomefu.com;
-    # 强制跳转 HTTPS
-    return 301 https://$host$request_uri;
-}
-
-server {
-    listen 443 ssl http2;
-    listen [::]:443 ssl http2;
-    server_name showcomefu.com www.showcomefu.com;
-
-    # SSL 证书（Certbot 自动填写）
-    ssl_certificate /etc/letsencrypt/live/showcomefu.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/showcomefu.com/privkey.pem;
-    include /etc/letsencrypt/options-ssl-nginx.conf;
-    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
-
-    # HSTS（浏览器强制 HTTPS，谨慎开启）
-    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
-
-    root /var/www/showcomefu;
-    index index.html;
-    charset utf-8;
-
-    access_log /var/log/nginx/showcomefu_access.log;
-    error_log  /var/log/nginx/showcomefu_error.log warn;
-
-    add_header X-Frame-Options "SAMEORIGIN" always;
-    add_header X-Content-Type-Options "nosniff" always;
-
-    # Gzip 压缩
-    gzip on;
-    gzip_types text/html text/css application/javascript application/json;
-    gzip_min_length 1000;
-
-    location / {
-        try_files $uri $uri/ /index.html;
-        location ~* \.(js|css|png|jpg|jpeg|gif|webp|svg|ico|woff2)$ {
-            expires 30d;
-            add_header Cache-Control "public, immutable";
-        }
-    }
-
-    location /admin {
-        auth_basic "ShowCome Admin";
-        auth_basic_user_file /etc/nginx/.htpasswd;
-        try_files $uri $uri/ /admin.html;
-    }
-
-    location ~ /\. { deny all; }
-}
-```
-
-```bash
-sudo nginx -t && sudo systemctl reload nginx
-```
-
----
-
-## 五、进程管理与监控
-
-### 5.1 Nginx 日志监控
-
-```bash
-# 实时查看访问日志
-sudo tail -f /var/log/nginx/showcomefu_access.log
-
-# 查看错误日志
-sudo tail -f /var/log/nginx/showcomefu_error.log
-
-# 统计今日访问量
-sudo awk '{print $1}' /var/log/nginx/showcomefu_access.log | sort | uniq -c | sort -rn | head -20
-
-# 日志轮转（Nginx 默认已配置，查看确认）
-cat /etc/logrotate.d/nginx
-```
-
-### 5.2 系统资源监控
-
-```bash
-# 安装 htop
-sudo apt install -y htop
-
-# 查看磁盘使用
-df -h
-
-# 查看内存
-free -h
-
-# 查看 Nginx 进程状态
-sudo systemctl status nginx
-
-# 设置 Nginx 崩溃自动重启
-sudo systemctl edit nginx
-# 添加以下内容：
-# [Service]
-# Restart=always
-# RestartSec=5s
-```
-
-### 5.3 设置简单备份
-
-```bash
-# 创建备份脚本
-sudo nano /usr/local/bin/backup-showcomefu.sh
-```
-
-```bash
-#!/bin/bash
-# /usr/local/bin/backup-showcomefu.sh
-
-BACKUP_DIR="/home/deploy/backups"
-DATE=$(date +%Y%m%d_%H%M%S)
-SITE_DIR="/var/www/showcomefu"
-
-mkdir -p "$BACKUP_DIR"
-
-# 备份站点文件
-tar -czf "$BACKUP_DIR/site_$DATE.tar.gz" -C "$SITE_DIR" .
-
-# 保留最近 30 个备份
-ls -t "$BACKUP_DIR"/site_*.tar.gz | tail -n +31 | xargs -r rm
-
-echo "[$DATE] 备份完成: site_$DATE.tar.gz"
-```
-
-```bash
-sudo chmod +x /usr/local/bin/backup-showcomefu.sh
-
-# 添加定时备份（每天凌晨 3 点）
-(crontab -l 2>/dev/null; echo "0 3 * * * /usr/local/bin/backup-showcomefu.sh >> /home/deploy/backups/backup.log 2>&1") | crontab -
-
-# 验证
-crontab -l
-```
-
----
-
-## 六、可选：Node.js API 层（数据持久化）
-
-> 如果需要多设备管理、数据持久化、邮件通知，需部署此层。  
-> localStorage 模式无需此章节。
-
-### 6.1 安装 Node.js 20
-
-```bash
-# 使用 NodeSource 官方源
-curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-sudo apt install -y nodejs
-
-# 验证
-node --version   # v20.x.x
-npm --version    # 10.x.x
-```
-
-### 6.2 安装 MySQL 8
-
-```bash
-sudo apt install -y mysql-server
-
-# 安全初始化
-sudo mysql_secure_installation
-# ↑ 设置 root 密码，删除匿名用户，禁止远程 root 登录
-
-# 登录 MySQL
-sudo mysql -u root -p
-
-# 创建数据库和用户
-CREATE DATABASE showcomefu CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-CREATE USER 'showcome'@'localhost' IDENTIFIED BY 'STRONG_PASSWORD_HERE';
+mysql_secure_installation
+# 按提示设置 root 密码、删除匿名用户、禁止远程 root 登录
+
+# 创建应用数据库用户
+mysql -u root -p
+CREATE USER 'showcome'@'localhost' IDENTIFIED BY '你的强密码';
 GRANT ALL PRIVILEGES ON showcomefu.* TO 'showcome'@'localhost';
 FLUSH PRIVILEGES;
 EXIT;
 ```
 
-### 6.3 数据库表结构初始化
+---
 
+## 二、Jenkins 配置
+
+### 2.1 安装 Jenkins（如未安装）
+
+```bash
+# CentOS
+sudo yum install -y java-17-openjdk
+sudo wget -O /etc/yum.repos.d/jenkins.repo https://pkg.jenkins.io/redhat-stable/jenkins.repo
+sudo rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io-2023.key
+sudo yum install -y jenkins
+sudo systemctl enable jenkins && sudo systemctl start jenkins
+```
+
+### 2.2 安装必要插件
+
+在 Jenkins 管理面板安装：
+- **Gitee Plugin** — Gitee WebHook 集成
+- **Generic Webhook Trigger Plugin** — 通用 WebHook 触发
+- **SSH Agent Plugin** — SSH 密钥管理
+- **NodeJS Plugin** — Node.js 环境（或服务器已全局安装则不需要）
+
+### 2.3 配置 Jenkins 凭据
+
+在 `Jenkins → 凭据 → 系统 → 全局凭据` 中添加：
+
+| 凭据 ID | 类型 | 说明 |
+|---------|------|------|
+| `showcomefu-ssh-user` | Secret text | 服务器 SSH 用户名（如 `root`） |
+| `showcomefu-ssh-host` | Secret text | 服务器 IP 地址 |
+| `showcomefu-ssh-key` | SSH Username with private key | SSH 私钥 |
+
+### 2.4 创建流水线任务
+
+1. **新建任务** → 输入名称 `showcomefu-deploy` → 选择「流水线」
+2. **构建触发器**：
+   - 勾选 `Generic Webhook Trigger`
+   - Token 填写：`showcomefu-deploy`
+3. **流水线定义**：
+   - 选择「Pipeline script from SCM」
+   - SCM：Git
+   - Repository URL：`https://gitee.com/你的用户名/ShowCome.Studio.git`
+   - 凭据：添加 Gitee 账号凭据
+   - 分支：`*/main`
+   - Script Path：`Jenkinsfile`
+
+### 2.5 配置 Gitee WebHook
+
+在 Gitee 仓库 → 管理 → WebHooks 中添加：
+
+```
+URL: http://你的Jenkins地址/generic-webhook-trigger/invoke?token=showcomefu-deploy
+触发事件: Push
+```
+
+### 2.6 SSH 密钥配对
+
+```bash
+# 在 Jenkins 服务器生成密钥
+ssh-keygen -t ed25519 -C "jenkins-deploy" -f ~/.ssh/showcomefu_deploy
+
+# 将公钥添加到生产服务器
+ssh-copy-id -i ~/.ssh/showcomefu_deploy.pub root@YOUR_SERVER_IP
+
+# 将私钥内容添加到 Jenkins 凭据 showcomefu-ssh-key
+cat ~/.ssh/showcomefu_deploy
+```
+
+---
+
+## 三、首次部署
+
+### 3.1 触发首次构建
+
+方式 A：在 Jenkins 中手动点击「立即构建」
+
+方式 B：推送代码到 Gitee main 分支自动触发
+
+```bash
+git push origin main
+```
+
+### 3.2 Web 初始化向导
+
+首次部署完成后，API 服务启动在「未初始化」模式：
+
+1. 浏览器访问 `http://你的域名/setup`（或 `http://IP:端口/setup`）
+2. **第 1 步 — 数据库配置**：填写 MySQL 连接信息，点击「测试连接」
+3. **第 2 步 — 管理员账号**：设置超级管理员用户名和密码
+4. **第 3 步 — OSS 配置**：填写阿里云 OSS 配置（可跳过，稍后在后台配置）
+5. **第 4 步 — 确认初始化**：检查配置后点击「开始初始化」
+
+初始化完成后系统自动：
+- 创建 `.env` 配置文件
+- 执行所有数据库迁移脚本（建表）
+- 创建管理员账号
+- 生成 `installed.lock` 锁文件
+
+> ⚠️ `installed.lock` 文件存在时不会再显示初始化向导。如需重新初始化，需手动删除该文件和 `.env`。
+
+### 3.3 登录管理后台
+
+初始化完成后访问 `/admin`，使用刚才设置的管理员账号登录。
+
+---
+
+## 四、数据库迁移机制
+
+### 4.1 工作原理
+
+```
+migrations/
+├── 001_initial_schema.sql     ← 初始表结构
+├── 002_add_system_config.sql  ← 系统配置表
+├── 003_xxx_feature.sql        ← 后续迭代新增
+└── ...
+```
+
+- 迁移文件命名：`{三位序号}_{描述}.sql`
+- 每个迁移文件只执行一次，记录在 `migrations_history` 表
+- 每次 Jenkins 部署时自动执行 `node migrate.js`
+- 已执行的迁移不会重复运行
+
+### 4.2 添加新迁移
+
+当需要修改表结构时：
+
+1. 在 `migrations/` 目录创建新文件，序号递增：
 ```sql
--- 连接数据库
-USE showcomefu;
-
--- CMS 内容键值存储（灵活，适合 JSON 内容）
-CREATE TABLE cms_data (
-    `key`       VARCHAR(100) NOT NULL PRIMARY KEY,
-    `value`     LONGTEXT NOT NULL,
-    updated_at  DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    updated_by  VARCHAR(50) DEFAULT 'admin'
+-- migrations/003_add_coupon_table.sql
+CREATE TABLE IF NOT EXISTS `coupons` (
+  `id`   INT NOT NULL AUTO_INCREMENT,
+  `code` VARCHAR(50) NOT NULL,
+  ...
+  PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
--- 管理员账号
-CREATE TABLE admins (
-    id          INT AUTO_INCREMENT PRIMARY KEY,
-    username    VARCHAR(50) UNIQUE NOT NULL,
-    password    VARCHAR(255) NOT NULL COMMENT 'bcrypt hash',
-    role        ENUM('admin','editor','viewer') DEFAULT 'editor',
-    last_login  DATETIME,
-    active      TINYINT(1) DEFAULT 1,
-    created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
--- 定制订单
-CREATE TABLE orders (
-    id          VARCHAR(30) PRIMARY KEY,
-    nickname    VARCHAR(100),
-    contact     VARCHAR(200),
-    type        VARCHAR(100),
-    budget      VARCHAR(50),
-    species     VARCHAR(100),
-    ref_url     VARCHAR(500),
-    note        TEXT,
-    status      ENUM('new','contacted','designing','making','done','cancelled') DEFAULT 'new',
-    created_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at  DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
--- 媒体文件记录
-CREATE TABLE media (
-    id          BIGINT AUTO_INCREMENT PRIMARY KEY,
-    name        VARCHAR(255) NOT NULL,
-    type        ENUM('image','video','audio','model','other') NOT NULL,
-    url         VARCHAR(1000) NOT NULL,
-    thumb_url   VARCHAR(1000),
-    size_bytes  BIGINT,
-    mime_type   VARCHAR(100),
-    uploaded_by VARCHAR(50),
-    created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
--- 操作日志
-CREATE TABLE activity_log (
-    id          BIGINT AUTO_INCREMENT PRIMARY KEY,
-    user        VARCHAR(50),
-    action      VARCHAR(200),
-    detail      TEXT,
-    ip          VARCHAR(50),
-    created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
--- 插入默认管理员（密码需用 bcrypt 哈希，见 API 代码）
--- 临时明文，上线后立即通过 API 修改
-INSERT INTO admins (username, password, role) 
-VALUES ('admin', '$2b$12$PLACEHOLDER_CHANGE_ON_FIRST_LOGIN', 'admin');
 ```
 
-### 6.4 搭建 Node.js API 服务
+2. 提交并推送到 Gitee：
+```bash
+git add migrations/003_add_coupon_table.sql
+git commit -m "feat: 添加优惠券表"
+git push origin main
+```
+
+3. Jenkins 自动部署时会执行新迁移
+
+### 4.3 手动执行迁移
 
 ```bash
-# 创建 API 项目目录
-mkdir -p /opt/showcomefu-api
-cd /opt/showcomefu-api
+# 在服务器上
+cd /opt/showcomefu
 
-# 初始化项目
-npm init -y
+# 查看迁移状态
+node migrate.js --status
 
-# 安装依赖
-npm install express mysql2 bcryptjs jsonwebtoken cors helmet express-rate-limit dotenv
+# 执行待执行的迁移
+node migrate.js
 
-# 创建环境变量文件
-nano .env
+# 迁移到指定版本
+node migrate.js --target 003
 ```
 
-`.env` 文件内容：
+### 4.4 管理后台迁移
 
-```env
-PORT=3000
-DB_HOST=127.0.0.1
-DB_PORT=3306
-DB_NAME=showcomefu
-DB_USER=showcome
-DB_PASS=STRONG_PASSWORD_HERE
-JWT_SECRET=CHANGE_THIS_TO_RANDOM_64_CHAR_STRING
-JWT_EXPIRES=24h
-ADMIN_DEFAULT_PASS=showcome2024
-NODE_ENV=production
-```
-
-`server.js` 核心代码：
-
-```javascript
-// /opt/showcomefu-api/server.js
-require('dotenv').config();
-const express = require('express');
-const mysql   = require('mysql2/promise');
-const bcrypt  = require('bcryptjs');
-const jwt     = require('jsonwebtoken');
-const cors    = require('cors');
-const helmet  = require('helmet');
-const rateLimit = require('express-rate-limit');
-
-const app = express();
-const PORT = process.env.PORT || 3000;
-
-// ── Middleware ──
-app.use(helmet());
-app.use(cors({ origin: process.env.FRONTEND_URL || '*' }));
-app.use(express.json({ limit: '2mb' }));
-
-// ── DB Pool ──
-const pool = mysql.createPool({
-    host: process.env.DB_HOST,
-    port: process.env.DB_PORT,
-    database: process.env.DB_NAME,
-    user: process.env.DB_USER,
-    password: process.env.DB_PASS,
-    waitForConnections: true,
-    connectionLimit: 10,
-    charset: 'utf8mb4',
-});
-
-// ── Auth Middleware ──
-const authLimiter = rateLimit({ windowMs: 15*60*1000, max: 10 });
-
-function authRequired(req, res, next) {
-    const token = req.headers.authorization?.split(' ')[1];
-    if (!token) return res.status(401).json({ error: '未授权' });
-    try {
-        req.user = jwt.verify(token, process.env.JWT_SECRET);
-        next();
-    } catch {
-        res.status(401).json({ error: 'Token 无效或已过期' });
-    }
-}
-
-// ── Routes: Auth ──
-app.post('/api/auth/login', authLimiter, async (req, res) => {
-    const { username, password } = req.body;
-    const [rows] = await pool.query(
-        'SELECT * FROM admins WHERE username=? AND active=1', [username]
-    );
-    const admin = rows[0];
-    if (!admin || !await bcrypt.compare(password, admin.password)) {
-        return res.status(401).json({ error: '账号或密码错误' });
-    }
-    await pool.query('UPDATE admins SET last_login=NOW() WHERE id=?', [admin.id]);
-    const token = jwt.sign(
-        { id: admin.id, username: admin.username, role: admin.role },
-        process.env.JWT_SECRET,
-        { expiresIn: process.env.JWT_EXPIRES }
-    );
-    res.json({ token, user: { username: admin.username, role: admin.role } });
-});
-
-// ── Routes: CMS 内容 ──
-app.get('/api/cms/:key', async (req, res) => {
-    const [rows] = await pool.query('SELECT value FROM cms_data WHERE `key`=?', [req.params.key]);
-    if (!rows[0]) return res.status(404).json({ error: '未找到' });
-    res.json(JSON.parse(rows[0].value));
-});
-
-app.put('/api/cms/:key', authRequired, async (req, res) => {
-    const value = JSON.stringify(req.body);
-    await pool.query(
-        'INSERT INTO cms_data (`key`,`value`,updated_by) VALUES (?,?,?) ON DUPLICATE KEY UPDATE `value`=?,updated_by=?,updated_at=NOW()',
-        [req.params.key, value, req.user.username, value, req.user.username]
-    );
-    res.json({ ok: true });
-});
-
-// ── Routes: 订单 ──
-app.post('/api/orders', async (req, res) => {
-    const { nickname, contact, type, budget, species, refUrl, note } = req.body;
-    if (!contact) return res.status(400).json({ error: '联系方式必填' });
-    const id = 'O' + Date.now();
-    await pool.query(
-        'INSERT INTO orders (id,nickname,contact,type,budget,species,ref_url,note) VALUES (?,?,?,?,?,?,?,?)',
-        [id, nickname, contact, type, budget, species, refUrl, note]
-    );
-    res.json({ ok: true, id });
-});
-
-app.get('/api/orders', authRequired, async (req, res) => {
-    const [rows] = await pool.query('SELECT * FROM orders ORDER BY created_at DESC LIMIT 200');
-    res.json(rows);
-});
-
-app.patch('/api/orders/:id/status', authRequired, async (req, res) => {
-    await pool.query('UPDATE orders SET status=? WHERE id=?', [req.body.status, req.params.id]);
-    res.json({ ok: true });
-});
-
-// ── Routes: 媒体 ──
-app.get('/api/media', authRequired, async (req, res) => {
-    const [rows] = await pool.query('SELECT * FROM media ORDER BY created_at DESC');
-    res.json(rows);
-});
-
-app.post('/api/media', authRequired, async (req, res) => {
-    const { name, type, url, thumbUrl, sizeBytes, mimeType } = req.body;
-    const [r] = await pool.query(
-        'INSERT INTO media (name,type,url,thumb_url,size_bytes,mime_type,uploaded_by) VALUES (?,?,?,?,?,?,?)',
-        [name, type, url, thumbUrl, sizeBytes, mimeType, req.user.username]
-    );
-    res.json({ ok: true, id: r.insertId });
-});
-
-// ── 健康检查 ──
-app.get('/api/health', async (req, res) => {
-    try {
-        await pool.query('SELECT 1');
-        res.json({ status: 'ok', time: new Date().toISOString() });
-    } catch {
-        res.status(500).json({ status: 'db_error' });
-    }
-});
-
-app.listen(PORT, '127.0.0.1', () => {
-    console.log(`ShowCome API running on port ${PORT}`);
-});
-```
-
-### 6.5 使用 PM2 管理 Node 进程
+登录管理后台后，也可通过 API 查看和执行迁移：
 
 ```bash
-# 全局安装 PM2
-sudo npm install -g pm2
+# 查看迁移状态
+GET /api/migrations
 
-# 启动 API 服务
-cd /opt/showcomefu-api
-pm2 start server.js --name "showcomefu-api"
-
-# 设置开机自启
-pm2 startup systemd
-# ↑ 复制并执行输出的命令
-
-pm2 save
-
-# 常用命令
-pm2 status                          # 查看进程状态
-pm2 logs showcomefu-api             # 查看日志
-pm2 restart showcomefu-api          # 重启
-pm2 reload showcomefu-api           # 零停机重载
-pm2 stop showcomefu-api             # 停止
-pm2 monit                           # 实时监控面板
-```
-
-### 6.6 初始化默认管理员密码
-
-```bash
-# 生成 bcrypt 哈希（在服务器执行）
-node -e "
-const bcrypt = require('bcryptjs');
-bcrypt.hash('showcome2024', 12).then(h => {
-  console.log(h);
-  process.exit(0);
-});
-"
-# 复制输出的哈希值
-
-# 更新数据库
-sudo mysql -u showcome -p showcomefu
-UPDATE admins SET password='[上面的哈希值]' WHERE username='admin';
-EXIT;
+# 执行迁移
+POST /api/migrations/run
 ```
 
 ---
 
-## 七、Nginx 开启 API 反向代理
+## 五、阿里云 OSS 配置
 
-取消第三章配置中 API 代理的注释：
+### 5.1 创建 OSS Bucket
+
+1. 登录 [阿里云 OSS 控制台](https://oss.console.aliyun.com/)
+2. 创建 Bucket：
+   - 名称：`showcomefu`（自定义）
+   - 地域：选择离服务器近的区域
+   - 存储类型：标准存储
+   - 读写权限：**公共读**（媒体文件需公开访问）
+3. 跨域设置（CORS）：
+   - 来源：`*`（或限制为你的域名）
+   - 允许方法：`GET, POST, PUT`
+   - 允许头：`*`
+
+### 5.2 创建 AccessKey
+
+1. 阿里云控制台 → RAM 访问控制 → 用户 → 创建用户
+2. 勾选「OpenAPI 调用访问」
+3. 授予 `AliyunOSSFullAccess` 权限
+4. 记录 AccessKey ID 和 AccessKey Secret
+
+### 5.3 配置方式
+
+**方式 A：在初始化向导中配置**（推荐首次部署）
+
+**方式 B：修改 `.env` 文件**
 
 ```bash
-sudo nano /etc/nginx/sites-available/showcomefu
+# 在服务器上
+cd /opt/showcomefu
+vi .env
+
+# 添加/修改以下配置
+OSS_REGION=oss-cn-haikou
+OSS_BUCKET=showcomefu
+OSS_ACCESS_KEY_ID=你的AK
+OSS_ACCESS_KEY_SECRET=你的SK
+OSS_ENDPOINT=https://oss-cn-haikou.aliyuncs.com
+OSS_CDN_DOMAIN=cdn.showcomefu.com
+
+# 重启服务
+pm2 reload showcomefu-api
 ```
 
-```nginx
-# 取消注释这段
-location /api/ {
-    proxy_pass http://127.0.0.1:3000/api/;
-    proxy_http_version 1.1;
-    proxy_set_header Upgrade $http_upgrade;
-    proxy_set_header Connection 'upgrade';
-    proxy_set_header Host $host;
-    proxy_set_header X-Real-IP $remote_addr;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto $scheme;
-    proxy_cache_bypass $http_upgrade;
-    proxy_read_timeout 60s;
-}
+### 5.4 前端上传流程
+
+```
+前端 → POST /api/oss/sign（获取签名）→ 直传 OSS → 回调存入 media 表
 ```
 
-```bash
-sudo nginx -t && sudo systemctl reload nginx
-
-# 测试 API
-curl https://showcomefu.com/api/health
-```
+- `/api/oss/sign`：生成 OSS PostObject 签名，前端凭签名直传 OSS
+- `/api/oss/status`：查看 OSS 配置状态
 
 ---
 
-## 八、CDN 加速（推荐 Cloudflare）
+## 六、CI/CD 流水线详解
 
-### 8.1 接入 Cloudflare
-
-1. 注册 [cloudflare.com](https://cloudflare.com) 免费账号
-2. 添加站点，输入你的域名
-3. 将域名的 NS（名称服务器）改为 Cloudflare 提供的 NS
-4. 等待生效（最长 24 小时，通常 5 分钟）
-
-### 8.2 Cloudflare 推荐配置
+### 6.1 Jenkinsfile 流程
 
 ```
-SSL/TLS 模式：Full (Strict)    ← 需要服务器已有 SSL 证书
-最低 TLS 版本：TLS 1.2
-自动 HTTPS 重写：开启
-HTTP/3 (QUIC)：开启
-Brotli 压缩：开启
-
-缓存规则：
-  /admin*  → 不缓存（Bypass Cache）
-  /api/*   → 不缓存（Bypass Cache）
-  /*       → 缓存 1 天
-
-防火墙规则：
-  CF.Bot Score < 30  → Block（防爬虫）
+检出代码 → 代码检查 → 安装依赖 → 打包制品 → 上传到服务器 → 部署&迁移 → 健康检查
 ```
 
----
+| 阶段 | 说明 |
+|------|------|
+| 检出代码 | 从 Gitee 拉取最新 main 分支 |
+| 代码检查 | 验证关键文件完整性 |
+| 安装依赖 | `npm ci --omit=dev` |
+| 打包制品 | 排除 node_modules/.git/.env 后打包为 tar.gz |
+| 上传到服务器 | SCP 传输到 `/tmp/` |
+| 部署&迁移 | 解压、安装依赖、执行迁移、更新静态文件、重启 PM2 |
+| 健康检查 | 验证 API 和 Nginx 运行状态 |
 
-## 九、更新部署流程
+### 6.2 部署安全
 
-### 日常更新（修改了 HTML 文件后）
+- `.env` 和 `installed.lock` 不在 Git 仓库中，部署不会覆盖
+- 每次部署自动备份到 `/opt/showcomefu-backups/`
+- 保留最近 10 个备份
+
+### 6.3 回滚
 
 ```bash
-# 方法 A：SCP 直接上传
-scp index.html admin.html deploy@YOUR_SERVER_IP:/tmp/
-ssh deploy@YOUR_SERVER_IP "
-  sudo cp /tmp/index.html /var/www/showcomefu/
-  sudo cp /tmp/admin.html /var/www/showcomefu/
-  sudo chown www-data:www-data /var/www/showcomefu/*.html
-  echo '部署完成'
-"
+# 查看可用备份
+ls -lt /opt/showcomefu-backups/
 
-# 方法 B：Git 拉取
-ssh deploy@YOUR_SERVER_IP "
-  cd /var/www/showcomefu
-  git pull origin main
-  sudo systemctl reload nginx
-"
-```
-
-### 回滚（出现问题时）
-
-```bash
-# 查看备份列表
-ls -lt ~/backups/site_*.tar.gz
+# 回滚到最新备份
+sudo bash /opt/showcomefu/deploy/rollback.sh
 
 # 回滚到指定版本
-sudo tar -xzf ~/backups/site_20240101_030000.tar.gz -C /var/www/showcomefu/
-sudo systemctl reload nginx
+sudo bash /opt/showcomefu/deploy/rollback.sh backup-20260313_120000.tar.gz
 ```
 
 ---
 
-## 十、常见问题排查
+## 七、日常运维
+
+### 7.1 常用命令
 
 ```bash
-# ── 502 Bad Gateway ──
-pm2 status                          # 检查 Node 进程是否运行
-pm2 logs showcomefu-api --lines 50  # 查看错误日志
-sudo tail -f /var/log/nginx/showcomefu_error.log
+# API 服务
+pm2 status                         # 查看进程状态
+pm2 logs showcomefu-api            # 查看日志
+pm2 reload showcomefu-api          # 零停机重载
+pm2 restart showcomefu-api         # 重启
+pm2 monit                          # 实时监控
 
-# ── 403 Forbidden ──
-ls -la /var/www/showcomefu/         # 检查文件权限
-sudo chown -R www-data:www-data /var/www/showcomefu
-sudo chmod -R 755 /var/www/showcomefu
-
-# ── 证书过期 ──
-sudo certbot renew                  # 手动续期
-sudo certbot certificates           # 查看证书有效期
-
-# ── Nginx 配置错误 ──
-sudo nginx -t                       # 检查配置语法
-sudo journalctl -u nginx -n 50      # 查看 systemd 日志
-
-# ── MySQL 连接失败 ──
-sudo systemctl status mysql
-sudo tail -f /var/log/mysql/error.log
-mysql -u showcome -p showcomefu -e "SELECT 1"
-
-# ── 防火墙拦截 ──
-sudo ufw status verbose
-sudo ufw allow 80/tcp
-sudo ufw allow 443/tcp
-
-# ── 磁盘满了 ──
-df -h                               # 查看磁盘使用
-du -sh /var/log/nginx/*             # 查看日志占用
-sudo truncate -s 0 /var/log/nginx/showcomefu_access.log  # 清空日志
-```
-
----
-
-## 十一、部署检查清单
-
-完成部署后，逐项核对：
-
-- [ ] 访问 `https://showcomefu.com` 前台正常显示
-- [ ] HTTPS 证书有效，无浏览器警告
-- [ ] `http://` 自动跳转到 `https://`
-- [ ] 访问 `https://showcomefu.com/admin` 弹出 Basic Auth 对话框
-- [ ] 输入 Basic Auth 后，能看到 CMS 登录页
-- [ ] CMS 账号 `admin` / `showcome2024` 可以登录
-- [ ] 登录后能看到仪表盘，数据正常
-- [ ] 保存设置后点击"预览前台"，内容同步更新
-- [ ] `sudo certbot renew --dry-run` 输出 success
-- [ ] `pm2 status` 显示 API 进程 online（如启用了 API）
-- [ ] 定时备份脚本正常执行
-- [ ] `ufw status` 只开放 22、80、443 端口
-
----
-
-## 附录：服务器命令速查
-
-```bash
 # Nginx
-sudo systemctl start|stop|reload|restart nginx
-sudo nginx -t                  # 测试配置
-sudo tail -f /var/log/nginx/showcomefu_error.log
+nginx -t                           # 检查配置
+systemctl reload nginx             # 重载
+tail -f /var/log/nginx/showcomefu_access.log
 
 # MySQL
-sudo systemctl start|stop|status mysql
-sudo mysql -u showcome -p showcomefu
+mysql -u showcome -p showcomefu    # 进入数据库
+mysqldump -u showcome -p showcomefu > backup.sql  # 导出
 
-# PM2 (Node.js)
-pm2 start|stop|restart|reload|status|logs
+# 迁移
+cd /opt/showcomefu
+node migrate.js --status           # 查看迁移状态
+node migrate.js                    # 执行迁移
+```
 
-# 系统
-htop                           # 资源监控
-df -h                          # 磁盘空间
-free -h                        # 内存
-sudo ufw status                # 防火墙状态
-sudo journalctl -u nginx -f    # 实时系统日志
+### 7.2 SSL 证书续期
+
+```bash
+# 测试续期
+certbot renew --dry-run
+
+# 手动续期
+certbot renew
+systemctl reload nginx
+```
+
+### 7.3 服务器监控
+
+```bash
+htop                              # CPU/内存
+df -h                             # 磁盘
+free -h                           # 内存
+systemctl status nginx mysql      # 服务状态
+pm2 monit                         # API 监控
+```
+
+---
+
+## 八、项目目录结构
+
+```
+ShowCome.Studio/
+├── index.html              # 前台展示页
+├── admin.html              # 后台管理页
+├── setup.html              # 首次初始化向导
+├── server.js               # Node.js API 服务
+├── package.json            # Node.js 依赖声明
+├── migrate.js              # 数据库迁移运行器
+├── init-admin.js           # 管理员密码初始化工具
+├── .env.example            # 环境变量模板
+├── .gitignore
+├── Jenkinsfile             # Jenkins CI/CD 流水线
+├── migrations/             # 数据库迁移文件
+│   ├── 001_initial_schema.sql
+│   └── 002_add_system_config.sql
+├── deploy/                 # 部署脚本
+│   ├── centos-init.sh      # CentOS 服务器初始化
+│   ├── deploy.sh           # 部署执行脚本
+│   └── rollback.sh         # 版本回滚脚本
+├── schema.sql              # 完整数据库 Schema（参考用）
+├── setup.sh                # 旧版 Ubuntu 部署脚本（保留兼容）
+└── DEPLOY.md               # 本文档
+```
+
+### 服务器目录
+
+```
+/opt/showcomefu/             # API 源码 + Node 依赖
+    ├── .env                 # 运行时配置（不在 Git 中）
+    ├── installed.lock       # 安装锁文件（不在 Git 中）
+    └── node_modules/
+
+/opt/showcomefu-backups/     # 部署备份
+
+/var/www/showcomefu/         # Nginx 静态文件
+    ├── index.html
+    ├── admin.html
+    └── setup.html
+```
+
+---
+
+## 九、故障排查
+
+```bash
+# API 502 Bad Gateway
+pm2 status                          # 检查进程是否运行
+pm2 logs showcomefu-api --lines 50  # 查看错误日志
+curl http://127.0.0.1:3000/api/health  # 直接访问 API
+
+# Nginx 配置错误
+nginx -t
+journalctl -u nginx -n 50
+
+# 数据库连接失败
+systemctl status mysqld
+mysql -u showcome -p showcomefu -e "SELECT 1"
+
+# 首次部署 setup 页面不显示
+pm2 logs showcomefu-api             # 检查 API 是否启动
+cat /opt/showcomefu/installed.lock  # 是否已有锁文件
+
+# 迁移失败
+cd /opt/showcomefu && node migrate.js --status
+mysql -u showcome -p showcomefu -e "SELECT * FROM migrations_history"
+
+# OSS 上传失败
+curl http://127.0.0.1:3000/api/oss/status  # 检查 OSS 配置
+```
+
+---
+
+## 十、安全建议
+
+1. **SSH 密钥登录**：禁用密码登录，仅使用密钥
+2. **防火墙**：仅开放 22/80/443 端口
+3. **HTTPS**：始终使用 SSL 证书
+4. **数据库**：MySQL 仅监听 127.0.0.1，禁止远程直连
+5. **`.env` 权限**：设为 600，仅 root 可读
+6. **定期备份**：配置 crontab 每日备份数据库
+7. **OSS 权限**：使用 RAM 子账号，仅授予必要的 OSS 权限
+
+```bash
+# 配置每日数据库备份
+(crontab -l 2>/dev/null; echo "0 3 * * * mysqldump -u showcome -p'密码' showcomefu | gzip > /opt/showcomefu-backups/db_\$(date +\%Y\%m\%d).sql.gz") | crontab -
 ```
