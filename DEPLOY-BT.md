@@ -147,8 +147,8 @@ ARCHIVE_FILE=$(ls -t showcomefu-bt-*.tar.gz | head -1)
 
 if [ -f "$ARCHIVE_FILE" ]; then
     echo "发现制品: $ARCHIVE_FILE"
-    # 2. 先从包里独自抽出 start.sh 文件
-    tar -xzf $ARCHIVE_FILE start.sh --overwrite
+    # 2. 先从包里独自抽出 start.sh 文件（因打包时使用的是 '.'，所以路径带有 ./）
+    tar -xzf $ARCHIVE_FILE ./start.sh --overwrite || tar -xzf $ARCHIVE_FILE start.sh --overwrite
     
     # 3. 赋予执行权限并执行它（由 start.sh 接管后续的解压覆盖与重启任务）
     chmod +x start.sh
