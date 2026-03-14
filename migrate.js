@@ -43,11 +43,16 @@ function getPendingMigrations(appliedMap) {
 }
 
 function splitStatements(sql) {
-  return sql
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .split(/;\s*\n/)
+  const cleaned = sql
+    .split('\n')
+    .filter(line => !line.trim().startsWith('--'))
+    .join('\n')
+    .replace(/\/\*[\s\S]*?\*\//g, '');
+
+  return cleaned
+    .split(/;\s*(?:\n|$)/)
     .map(s => s.trim())
-    .filter(s => s && !s.startsWith('--'));
+    .filter(s => s.length > 0);
 }
 
 async function runMigrations(pool, targetVersion) {

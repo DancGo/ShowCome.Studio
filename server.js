@@ -23,7 +23,12 @@ let isInstalled = fs.existsSync(LOCK_FILE);
 let pool = null;
 
 // ── 基础中间件（始终启用） ──
-app.use(helmet({ contentSecurityPolicy: false }));
+app.use(helmet({
+  contentSecurityPolicy: false,
+  crossOriginOpenerPolicy: false,
+  crossOriginEmbedderPolicy: false,
+  originAgentCluster: false,
+}));
 app.use(cors({
   origin: process.env.FRONTEND_URL || '*',
   methods: ['GET','POST','PUT','PATCH','DELETE','OPTIONS'],
@@ -214,7 +219,7 @@ app.post('/api/setup/init', asyncHandler(async (req, res) => {
   ].join('\n');
 
   fs.writeFileSync(CONFIG_FILE, envContent, 'utf8');
-  fs.chmodSync(CONFIG_FILE, '600');
+  try { fs.chmodSync(CONFIG_FILE, 0o600); } catch { /* Windows 等系统不支持 chmod */ }
 
   // 重新加载环境变量
   process.env.DB_HOST     = db.host;
@@ -269,10 +274,13 @@ app.post('/api/setup/init', asyncHandler(async (req, res) => {
     });
 
   } catch (err) {
-    // 初始化失败，清理锁文件
     if (fs.existsSync(LOCK_FILE)) fs.unlinkSync(LOCK_FILE);
     isInstalled = false;
-    throw err;
+    console.error('[SETUP INIT ERROR]', err);
+    return res.status(500).json({
+      error: `初始化失败: ${err.message}`,
+      detail: err.code || err.sqlMessage || undefined,
+    });
   }
 }));
 

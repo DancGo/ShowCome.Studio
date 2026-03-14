@@ -126,67 +126,34 @@ echo "打包完成: $DEPLOY_ARCHIVE"
   *(说明：结合前面系统配置的基础路径 `/www/wwwroot/`，文件会被上传到宝塔的 `/www/wwwroot/showcome_studio/` 目录)*
   
 - **Exec command**（执行命令）:
-  在此处填入上传后要在宝塔服务器上 **远程执行的命令**。注意：为了支持环境变量传递，请确保配置中勾选了传输变量的相关选项（如果可用），或者直接在脚本中使用我们定义的变量。具体脚本如下：
+  在此处填入上传后要在宝塔服务器上 **远程执行的命令**。为了方便迭代和版本追踪，我们已经将部署逻辑提取为了项目根目录下的 `start.sh` 脚本，它默认会随着上面的打包命令一起被上传。因此在 Jenkins 中的 Exec command 只需要写以下短短几行代码：提取脚本 -> 运行即可！
 
 ```bash
 #!/bin/bash
 set -e
-# 从 Jenkins 参数中获取端口，若缺失则默认为 3000
-TARGET_PORT=${SERVER_PORT:-3000}
+# 将 Jenkins 的环境变量传导下去
+export SERVER_PORT=$SERVER_PORT
 APP_DIR="/www/wwwroot/showcome_studio"
-ARCHIVE_PATTERN="showcomefu-bt-*.tar.gz"
 
-echo "==== 1. 开始部署应用 (目标端口: $TARGET_PORT) ===="
 cd $APP_DIR
+# 1. 找到刚上传的最新压缩包
+ARCHIVE_FILE=$(ls -t showcomefu-bt-*.tar.gz | head -1)
 
-# 找到刚上传的压缩包并解压
-ARCHIVE_FILE=$(ls -t $ARCHIVE_PATTERN | head -1)
 if [ -f "$ARCHIVE_FILE" ]; then
-    echo "解压制品: $ARCHIVE_FILE"
-    tar -xzf $ARCHIVE_FILE --overwrite
-    rm -f $ARCHIVE_PATTERN
+    echo "发现制品: $ARCHIVE_FILE"
+    # 2. 先从包里独自抽出 start.sh 文件
+    tar -xzf $ARCHIVE_FILE start.sh --overwrite
+    
+    # 3. 赋予执行权限并执行它（由 start.sh 接管后续的解压覆盖与重启任务）
+    chmod +x start.sh
+    bash start.sh
 else
-    echo "错误：未找到上传的压缩包！"
+    echo "错误：未找到最新压缩包！"
     exit 1
 fi
-
-echo "==== 2. 更新或注入端口变量 ===="
-# 如果 .env 已存在，则更新 PORT；若不存在则创建
-if [ -f ".env" ]; then
-    # 使用 sed 替换已有的 PORT 配置，或者追加
-    if grep -q "PORT=" .env; then
-        sed -i "s/^PORT=.*/PORT=$TARGET_PORT/" .env
-    else
-        echo "PORT=$TARGET_PORT" >> .env
-    fi
-else
-    echo "PORT=$TARGET_PORT" > .env
-    echo "NODE_ENV=production" >> .env
-fi
-
-echo "==== 3. 安装服务器端依赖 ===="
-export PATH=$PATH:/www/server/nodejs/v20/bin
-npm ci --omit=dev --silent || npm install --omit=dev --silent
-
-echo "==== 4. 数据库自动迁移 ===="
-export NODE_ENV=production
-if [ -f "installed.lock" ]; then
-    echo "检测到系统已初始化，执行增量迁移..."
-    /www/server/nodejs/v20/bin/node migrate.js
-fi
-
-echo "==== 5. 纠正文件所有者权限 ===="
-chown -R www:www $APP_DIR
-
-echo "==== 6. 重启 PM2 后端 API ===="
-# 使用变量启动/重载，确保端口生效
-pm2 reload showcome_api --update-env || pm2 start server.js --name showcome_api --env PORT=$TARGET_PORT --time
-pm2 save
-
-echo "==== 部署全部完成 ===="
 ```
 
-*(说明：此命令会在宝塔服务器上执行，负责解压刚传过去的文件，安装实际依赖，处理数据库变更，并将权限赋给宝塔标准Web用户 `www`，最后挂载/热重载 PM2 进程。)*
+*(说明：这样能让部署逻辑受代码变更影响。日后如果在需要修改安装 Node 的路径或方式，只用改您工程里的 `start.sh` 并且 push 上去即可生效，不用每次都去 Jenkins 界面内编辑 Exec command。)*
 
 ---
 
