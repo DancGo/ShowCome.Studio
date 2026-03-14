@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>兽可梦 Show Come | 专业兽装定制工作室</title>
 <meta name="description" content="兽可梦（Show Come）专业兽头兽装定制工作室，提供高品质定制与成品售卖服务">
+<meta name="keywords" content="兽头定制,兽装,fursuit,兽可梦">
 
 <!-- Google Fonts -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -2670,6 +2671,65 @@ function __applyCmsDom__(cms) {
       list.map(t => `<div class="marquee-item"><span class="dot"></span> ${t}</div>`).join('')
     ).join('');
   }
+
+  if (cms.contact?.steps?.length) {
+    const stepsEl = document.querySelector('.custom-process');
+    if (stepsEl) {
+      stepsEl.innerHTML = cms.contact.steps.map(s =>
+        `<div class="process-step"><div class="process-num">${s.num}</div><div class="process-content"><h3>${s.title}</h3><p>${s.desc}</p></div></div>`
+      ).join('');
+    }
+  }
+
+  if (cms.social?.length) {
+    const contactChips = document.querySelector('.form-contacts');
+    if (contactChips) {
+      const contactItems = cms.social.filter(s => s.showContact !== false);
+      contactChips.innerHTML = contactItems.map(s =>
+        `<a href="${s.url || '#'}" class="contact-chip" ${s.url && s.url !== '#' ? 'target="_blank"' : ''}><span>${s.icon}</span> ${s.handle ? s.name + ' ' + s.handle : s.name}</a>`
+      ).join('');
+    }
+
+    const footerSocial = document.querySelector('.footer-social');
+    if (footerSocial) {
+      const footerItems = cms.social.filter(s => s.showFooter !== false);
+      footerSocial.innerHTML = footerItems.map(s =>
+        `<a href="${s.url || '#'}" class="social-btn" title="${s.name}" ${s.url && s.url !== '#' ? 'target="_blank"' : ''}>${s.icon}</a>`
+      ).join('');
+    }
+  }
+
+  if (cms.contact) {
+    const contactBlock = document.querySelector('.footer-grid > div:last-child .footer-title:last-of-type');
+    if (contactBlock) {
+      const infoEl = contactBlock.nextElementSibling;
+      if (infoEl) {
+        const lines = [];
+        if (cms.contact.email) lines.push(`<div>📧 ${cms.contact.email}</div>`);
+        if (cms.contact.wechat) lines.push(`<div>💬 微信: ${cms.contact.wechat}</div>`);
+        if (cms.contact.hours) lines.push(`<div>📞 ${cms.contact.hours}</div>`);
+        if (lines.length) infoEl.innerHTML = lines.join('');
+      }
+    }
+  }
+
+  if (cms.site) {
+    const footerDesc = document.querySelector('.footer-brand > p');
+    if (footerDesc && cms.about?.desc) footerDesc.textContent = cms.about.desc;
+
+    if (cms.site.icp) {
+      const icpLink = document.querySelector('.footer-bottom div a:last-child');
+      if (icpLink) icpLink.textContent = cms.site.icp;
+    }
+  }
+
+  if (cms.seo) {
+    if (cms.seo.title || cms.site?.pageTitle) document.title = cms.seo.title || cms.site.pageTitle;
+    const metaDesc = document.querySelector('meta[name="description"]');
+    if (metaDesc && cms.seo.desc) metaDesc.setAttribute('content', cms.seo.desc);
+    const metaKw = document.querySelector('meta[name="keywords"]');
+    if (metaKw && cms.seo.keywords) metaKw.setAttribute('content', cms.seo.keywords);
+  }
 }
 
 // Apply fallback theme and DOM immediately
@@ -2707,6 +2767,11 @@ __applyCmsDom__(window.__CMS__);
     dynamics   = cms.dynamics;
 
     if (typeof renderWorks === 'function') { renderWorks(); renderProducts(); renderTestimonials(); renderDynamics(); }
+
+    if (typeof statsAnimated !== 'undefined' && statsAnimated) {
+      statsAnimated = false;
+      animateStats();
+    }
   } catch(e) { console.warn('API CMS load failed, using defaults', e); }
 })();
 
@@ -3575,14 +3640,20 @@ function countUp(el, target, suffix = '') {
   }, 25);
 }
 
+let statsAnimated = false;
+function animateStats() {
+  if (statsAnimated) return;
+  const s = window.__CMS__?.hero?.stats;
+  if (!s || s.length < 3) return;
+  statsAnimated = true;
+  countUp(document.getElementById('stat1'), Number(s[0].value || s[0].number) || 0, s[0].suffix || '');
+  countUp(document.getElementById('stat2'), Number(s[1].value || s[1].number) || 0, s[1].suffix || '');
+  countUp(document.getElementById('stat3'), Number(s[2].value || s[2].number) || 0, s[2].suffix || '');
+}
+
 const statsObserver = new IntersectionObserver((entries) => {
   entries.forEach(e => {
-    if (e.isIntersecting) {
-      countUp(document.getElementById('stat1'), 500, '+');
-      countUp(document.getElementById('stat2'), 300, '+');
-      countUp(document.getElementById('stat3'), 6, '+');
-      statsObserver.disconnect();
-    }
+    if (e.isIntersecting) { animateStats(); statsObserver.disconnect(); }
   });
 }, { threshold: 0.5 });
 
