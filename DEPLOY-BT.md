@@ -92,11 +92,14 @@ echo "1. 安装 Node.js 依赖..."
 # 确保 Jenkins 服务器上已安装 Node
 npm ci --omit=dev --silent || npm install --omit=dev --silent
 
-echo "2. 打包为压缩文件..."
+echo "2. 清理工作区的老旧压缩包..."
+rm -f showcomefu-bt-*.tar.gz
+
+echo "3. 打包为压缩文件..."
 DEPLOY_ARCHIVE="showcomefu-bt-${BUILD_NUMBER}.tar.gz"
 
-# 将当前目录文件打包，排除开发与无关的缓存文件
-tar -czf "$DEPLOY_ARCHIVE" \
+# 先将文件打包到 /tmp 目录，避免“文件在读取时发生变化”的 tar 报错
+tar -czf "/tmp/$DEPLOY_ARCHIVE" \
     --exclude='node_modules' \
     --exclude='.git' \
     --exclude='.env' \
@@ -104,6 +107,9 @@ tar -czf "$DEPLOY_ARCHIVE" \
     --exclude='*.tar.gz' \
     --exclude='.gitignore' \
     .
+
+# 将打包好的文件移回工作区根目录以便后续 SSH 上传
+mv "/tmp/$DEPLOY_ARCHIVE" ./
 
 echo "打包完成: $DEPLOY_ARCHIVE"
 ```
@@ -147,6 +153,9 @@ if [ -f "$ARCHIVE_FILE" ]; then
     # 3. 赋予执行权限并执行它（由 start.sh 接管后续的解压覆盖与重启任务）
     chmod +x start.sh
     bash start.sh
+    
+    # 4. 执行完毕后清理服务端的旧包（保留自己或干脆删除节省空间）
+    # rm -f showcomefu-bt-*.tar.gz
 else
     echo "错误：未找到最新压缩包！"
     exit 1
