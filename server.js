@@ -12,7 +12,7 @@ const helmet    = require('helmet');
 const rateLimit = require('express-rate-limit');
 
 const app  = express();
-const PORT = process.env.PORT || 3000;
+let PORT = process.env.PORT || 3000;
 
 const CONFIG_FILE  = path.join(__dirname, '.env');
 const LOCK_FILE    = path.join(__dirname, 'installed.lock');
@@ -649,6 +649,9 @@ app.use((err, req, res, next) => {
 // ── 启动 ──
 function boot() {
   loadEnvFile();
+
+  // 必须在 loadEnvFile 加载完 .env 之后重新获取一次端口号
+  PORT = process.env.PORT || PORT;
 
   if (isInstalled && process.env.DB_NAME) {
     initDbPool();
