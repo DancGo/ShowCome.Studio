@@ -3568,4 +3568,12 @@ window.addEventListener('scroll', () => {
 });
 
 // Keyboard navigation
-d
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    document.querySelectorAll('.modal-overlay.open').forEach(m => m.classList.remove('open'));
+    if (cartOpen) toggleCart();
+  }
+});
+</script>
+</body>
+</html>
