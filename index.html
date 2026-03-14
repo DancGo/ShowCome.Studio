@@ -2523,15 +2523,15 @@ const __FALLBACK__ = {
   site: { name:'兽可梦', subtitle:'Show Come Studio', logoEmoji:'🐾', pageTitle:'兽可梦 Show Come | 专业兽装定制工作室', copyright:'© 2024 兽可梦 Show Come Studio. 保留所有权利.', icp:'' },
   hero: {
     badge:'专业兽装定制工作室 · 2024年度最佳工作室',
-    title1:'让梦想中的', title2:'兽人形象', title3:'成为现实',
-    desc:'兽可梦（Show Come）专注于高品质兽头、兽装制作。\n每一件作品都是匠心独运的艺术品，为您打造专属的毛茸茸身份。',
-    btn1Text:'探索作品', btn1Link:'#works', btn2Text:'开始定制', btn2Link:'#custom',
-    stats:[{number:500,suffix:'+',label:'完成作品'},{number:300,suffix:'+',label:'满意客户'},{number:6,suffix:'+',label:'年制作经验'}],
+    line1:'让梦想中的', line2:'兽人形象', line3:'成为现实',
+    subtitle:'兽可梦（Show Come）专注于高品质兽头、兽装制作。\n每一件作品都是匠心运的艺术品，为您打造专属的毛茸茸身份。',
+    btnPrimary:'探索作品', btnSecondary:'开始定制',
+    stats:[{value:500,suffix:'+',label:'完成作品'},{value:300,suffix:'+',label:'满意客户'},{value:6,suffix:'+',label:'年制作经验'}],
     threeDEnabled:true, colors:['#7c3aed','#f72585','#06d6a0','#4cc9f0'], particles:3000
   },
   theme: { bg:'#0a0a0f', bg2:'#111118', accent:'#7c3aed', accent2:'#06d6a0', accent3:'#f72585', text:'#e8e8f0', cursor:true, scrollAnim:true, parallax:true, noise:true, marquee:true },
   nav: { items:[{label:'关于我们',link:'#about'},{label:'作品展示',link:'#works'},{label:'成品商城',link:'#shop'},{label:'私人定制',link:'#custom'},{label:'工作室动态',link:'#dynamics'}], ctaText:'立即定制', ctaLink:'#custom', showCart:true, showLogin:true },
-  about: { tag:'关于兽可梦', title:'匠心制作', titleHl:'每一件都是艺术', desc:'兽可梦工作室成立于2018年，专注于高品质兽头与兽装的创作与制作。我们将传统手工艺与现代技术相结合，为每位客户打造独一无二的毛茸茸角色形象。', services:[{icon:'🎨',title:'原创设计',desc:'专业设计师团队量身打造独特角色设计'},{icon:'🔧',title:'精湛制作',desc:'采用优质EVA泡沫、高级毛绒面料，手工精细打磨'},{icon:'📦',title:'成品现货',desc:'精选库存成品，支持快速发货'},{icon:'🌟',title:'售后保障',desc:'专属售后服务，提供使用指导、维修修复'}] },
+  about: { tag:'关于兽可梦', title1:'匠心制作', title2:'每一件都是艺术', desc:'兽可梦工作室成立于2018年，专注于高品质兽头与兽装的创作与制作。我们将传统手工艺与现代技术相结合，为每位客户打造独一无二的毛茸茸角色形象。', services:[{icon:'🎨',title:'原创设计',desc:'专业设计师团队量身打造独特角色设计'},{icon:'🔧',title:'精湛制作',desc:'采用优质EVA泡沫、高级毛绒面料，手工精细打磨'},{icon:'📦',title:'成品现货',desc:'精选库存成品，支持快速发货'},{icon:'🌟',title:'售后保障',desc:'专属售后服务，提供使用指导、维修修复'}] },
   works: [
     { id:1, name:'暗夜狐灵', type:'head', typeName:'兽头', likes:328, views:2140, featured:true, color:'#7c3aed', emoji:'🦊', status:'published' },
     { id:2, name:'星辰龙骑', type:'fullsuit', typeName:'全身兽装', likes:512, views:3780, featured:false, color:'#06d6a0', emoji:'🐉', status:'published' },
@@ -2632,28 +2632,28 @@ function __applyCmsDom__(cms) {
 
   if (cms.hero) {
     if (cms.hero.badge) safeHtml('.hero-badge', `<span class="hero-badge-dot"></span>${cms.hero.badge}`);
-    safeText('.hero-title-line1:nth-of-type(1)', cms.hero.title1);
-    safeText('.hero-title-line2', cms.hero.title2);
-    safeText('.hero-title-line1:nth-of-type(3)', cms.hero.title3);
-    if (cms.hero.desc) safeHtml('.hero-sub', cms.hero.desc.replace(/\n/g, '<br>'));
+    safeText('.hero-title-line1:nth-of-type(1)', cms.hero.line1);
+    safeText('.hero-title-line2', cms.hero.line2);
+    safeText('.hero-title-line1:nth-of-type(3)', cms.hero.line3);
+    if (cms.hero.subtitle) safeHtml('.hero-sub', cms.hero.subtitle.replace(/\n/g, '<br>'));
     
-    safeText('.hero-actions .btn-primary span:first-child', cms.hero.btn1Text);
+    if (cms.hero.btnPrimary) safeText('.hero-actions .btn-primary span:first-child', cms.hero.btnPrimary);
     const btn2Spans = document.querySelectorAll('.hero-actions .btn-ghost span');
-    if(btn2Spans.length >= 2) btn2Spans[1].textContent = cms.hero.btn2Text;
+    if(btn2Spans.length >= 2 && cms.hero.btnSecondary) btn2Spans[1].textContent = cms.hero.btnSecondary;
     
     if (cms.hero.stats?.length >= 3) {
-      safeText('#stat1', cms.hero.stats[0].number + (cms.hero.stats[0].suffix || ''));
+      safeText('#stat1', (cms.hero.stats[0].value || cms.hero.stats[0].number) + (cms.hero.stats[0].suffix || ''));
       safeText('#stat1 + .stat-label', cms.hero.stats[0].label);
-      safeText('#stat2', cms.hero.stats[1].number + (cms.hero.stats[1].suffix || ''));
+      safeText('#stat2', (cms.hero.stats[1].value || cms.hero.stats[1].number) + (cms.hero.stats[1].suffix || ''));
       safeText('#stat2 + .stat-label', cms.hero.stats[1].label);
-      safeText('#stat3', cms.hero.stats[2].number + (cms.hero.stats[2].suffix || ''));
+      safeText('#stat3', (cms.hero.stats[2].value || cms.hero.stats[2].number) + (cms.hero.stats[2].suffix || ''));
       safeText('#stat3 + .stat-label', cms.hero.stats[2].label);
     }
   }
 
   if (cms.about) {
     safeText('#about .section-tag', cms.about.tag);
-    if (cms.about.title && cms.about.titleHl) safeHtml('#about .section-title', `${cms.about.title}<span>${cms.about.titleHl}</span>`);
+    if (cms.about.title1 && cms.about.title2) safeHtml('#about .section-title', `${cms.about.title1}<span>${cms.about.title2}</span>`);
     safeText('#about .section-desc', cms.about.desc);
     if (cms.about.services?.length) {
       safeHtml('.services-list', cms.about.services.map(i => 
