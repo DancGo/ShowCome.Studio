@@ -2620,8 +2620,61 @@ function __applyCmsTheme__(cms) {
   }
 }
 
-// Apply fallback theme immediately
+function __applyCmsDom__(cms) {
+  const safeText = (sel, txt) => { const el = document.querySelector(sel); if(el && txt != null) el.textContent = txt; };
+  const safeHtml = (sel, html) => { const el = document.querySelector(sel); if(el && html != null) el.innerHTML = html; };
+
+  if (cms.site) {
+    safeText('.nav-logo-text', cms.site.name);
+    safeText('.nav-logo-sub', cms.site.subtitle);
+    safeText('.footer-bottom span:first-child', cms.site.copyright);
+  }
+
+  if (cms.hero) {
+    if (cms.hero.badge) safeHtml('.hero-badge', `<span class="hero-badge-dot"></span>${cms.hero.badge}`);
+    safeText('.hero-title-line1:nth-of-type(1)', cms.hero.title1);
+    safeText('.hero-title-line2', cms.hero.title2);
+    safeText('.hero-title-line1:nth-of-type(3)', cms.hero.title3);
+    if (cms.hero.desc) safeHtml('.hero-sub', cms.hero.desc.replace(/\n/g, '<br>'));
+    
+    safeText('.hero-actions .btn-primary span:first-child', cms.hero.btn1Text);
+    const btn2Spans = document.querySelectorAll('.hero-actions .btn-ghost span');
+    if(btn2Spans.length >= 2) btn2Spans[1].textContent = cms.hero.btn2Text;
+    
+    if (cms.hero.stats?.length >= 3) {
+      safeText('#stat1', cms.hero.stats[0].number + (cms.hero.stats[0].suffix || ''));
+      safeText('#stat1 + .stat-label', cms.hero.stats[0].label);
+      safeText('#stat2', cms.hero.stats[1].number + (cms.hero.stats[1].suffix || ''));
+      safeText('#stat2 + .stat-label', cms.hero.stats[1].label);
+      safeText('#stat3', cms.hero.stats[2].number + (cms.hero.stats[2].suffix || ''));
+      safeText('#stat3 + .stat-label', cms.hero.stats[2].label);
+    }
+  }
+
+  if (cms.about) {
+    safeText('#about .section-tag', cms.about.tag);
+    if (cms.about.title && cms.about.titleHl) safeHtml('#about .section-title', `${cms.about.title}<span>${cms.about.titleHl}</span>`);
+    safeText('#about .section-desc', cms.about.desc);
+    if (cms.about.services?.length) {
+      safeHtml('.services-list', cms.about.services.map(i => 
+        `<div class="service-item"><div class="service-icon">${i.icon}</div><div class="service-info"><h3>${i.title}</h3><p>${i.desc}</p></div></div>`
+      ).join(''));
+    }
+  }
+
+  if (cms.theme?.marquee === false && document.querySelector('.marquee-wrap')) {
+    document.querySelector('.marquee-wrap').style.display = 'none';
+  } else if (cms.hero?.badge && document.querySelector('.marquee-track')) {
+    const list = ['兽头定制', '全身兽装', '成品现货', cms.site?.name || '兽可梦'];
+    document.querySelector('.marquee-track').innerHTML = Array(4).fill(0).map(() => 
+      list.map(t => `<div class="marquee-item"><span class="dot"></span> ${t}</div>`).join('')
+    ).join('');
+  }
+}
+
+// Apply fallback theme and DOM immediately
 __applyCmsTheme__(window.__CMS__);
+__applyCmsDom__(window.__CMS__);
 
 // Async load from API, re-render if data arrives
 (async function loadCmsFromApi() {
@@ -2646,6 +2699,7 @@ __applyCmsTheme__(window.__CMS__);
 
     window.__CMS__ = cms;
     __applyCmsTheme__(cms);
+    __applyCmsDom__(cms);
 
     works      = cms.works.filter(w => w.status === 'published' || !w.status);
     products   = cms.products.filter(p => p.status === 'active' || !p.status);
